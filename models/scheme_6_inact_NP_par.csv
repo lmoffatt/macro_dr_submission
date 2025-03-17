@@ -18,6 +18,6 @@ scheme_6_inact,15,Gating_Current,Log10,1,0
 scheme_6_inact,16,Current_Noise,Log10,0.001,-3
 scheme_6_inact,17,Pink_Noise,Fixed,0,0
 scheme_6_inact,18,Proportional_Noise,Fixed,0,0
-scheme_6_inact,19,Current_Baseline,Linear,1,1
+scheme_6_inact,19,Current_Baseline,Log10,1,0
 scheme_6_inact,20,Num_ch,Log10,4800,3.681241237375587
 scheme_6_inact,21,inactivation_rate,Log10,1e-05,-5

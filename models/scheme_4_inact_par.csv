@@ -18,6 +18,6 @@ scheme_4_inact,15,unitary_current,Log10,1,0
 scheme_4_inact,16,Current_Noise,Log10,0.001,-3
 scheme_4_inact,17,Pink_Noise,Log10,5,0.6989700043360189
 scheme_4_inact,18,Proportional_Noise,Log10,0.01,-2
-scheme_4_inact,19,Current_Baseline,Linear,1,1
+scheme_4_inact,19,Current_Baseline,Log10,1,0
 scheme_4_inact,20,Num_ch_mean,Log10,5000,3.698970004336019
 scheme_4_inact,21,inactivation_rate,Log10,1e-05,-5

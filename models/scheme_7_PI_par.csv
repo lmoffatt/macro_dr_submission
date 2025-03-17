@@ -18,5 +18,5 @@ scheme_7,15,Gating_Current,Log10,1,0
 scheme_7,16,Current_Noise,Log10,0.001,-3
 scheme_7,17,Pink_Noise,Log10,5,0.6989700043360189
 scheme_7,18,Proportional_Noise,Fixed,0,0
-scheme_7,19,Current_Baseline,Linear,1,1
+scheme_7,19,Current_Baseline,Log10,1,0
 scheme_7,20,Num_ch,Log10,4800,3.681241237375587

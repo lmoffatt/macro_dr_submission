@@ -10,6 +10,6 @@ scheme_5_inact,7,Gating_Current,Log10,1,0
 scheme_5_inact,8,Current_Noise,Log10,0.001,-3
 scheme_5_inact,9,Pink_Noise,Log10,5,0.6989700043360189
 scheme_5_inact,10,Proportional_Noise,Fixed,0,0
-scheme_5_inact,11,Current_Baseline,Linear,1,1
+scheme_5_inact,11,Current_Baseline,Log10,1,0
 scheme_5_inact,12,Num_ch,Log10,4800,3.681241237375587
 scheme_5_inact,13,inactivation_rate,Log10,1e-05,-5

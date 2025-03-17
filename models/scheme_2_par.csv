@@ -9,5 +9,5 @@ scheme_2,6,unitary_current,Log10,1,0
 scheme_2,7,Current_Noise,Log10,0.001,-3
 scheme_2,8,Pink_Noise,Log10,5,0.6989700043360189
 scheme_2,9,Proportional_Noise,Log10,0.01,-2
-scheme_2,10,Current_Baseline,Linear,1,1
+scheme_2,10,Current_Baseline,Log10,1,0
 scheme_2,11,Num_ch_mean,Log10,5000,3.698970004336019
