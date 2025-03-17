@@ -2,15 +2,14 @@
 
 . /etc/profile
 
-# Configurar OpenMP y otras bibliotecas que usan threads
-# usando los valores especificados arriba
+# Configure OpenMP and other thread-using libraries using the values specified above
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-#run cluster specific initialization
-source ${PATH_MACRO}/macro_dr/clusters/${CLUSTER}.sh
+#your can run cluster specific initialization here
+#source ${PATH_MACRO}/macro_dr/clusters/${CLUSTER}.sh
     
-# Lanzar el programa
+# run the program 
 srun ${PATH_MACRO}/macro_dr/multi_task/M_scheme_N_tasks.sh
 
 

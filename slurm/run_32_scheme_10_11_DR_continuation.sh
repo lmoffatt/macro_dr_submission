@@ -1,17 +1,26 @@
 #!/bin/bash
 
-export NTASKS=1
-CPUSPERTASK=32
+export NTASKS=2
+CPUSPERTASK=16
 
 export CP=$CPUSPERTASK
 
 export USE_LOCAL_ID=1
 
-export N_SCH=4
-N_SCH2=4
+export IDNAME_0=w9_IE_DR_32c_32s_4b_scheme_10_0_0
+export IDNAME_1=w9_IE_DR_32c_32s_4b_scheme_11_0_0
+
+export WORKING_DIRECTORY=macro_dr
+
+export RUNTIME=3-00:00
+export EVIDENCE_ALGORITHM=thermo_dts
+
+
+export N_SCH=10
+N_SCH2=11
 
 export SCHEME_0=scheme_${N_SCH}
-export SCHEME_1=scheme_${N_SCH}
+export SCHEME_1=scheme_${N_SCH2}
 
 
 
@@ -27,9 +36,7 @@ export PATH_MACRO_DRX=w9
 
 
 export LIK_0=DR
-export LIK_1=$LIK_0
-
-
+export LIK_1=DR
 
 
 
@@ -46,12 +53,12 @@ export MAX_ITER=1000000
 
 
 
-export CONTINUATION_NUMBER=0
+export CONTINUATION_NUMBER=7
 
 JOBID1=$(sbatch --parsable --job-name=R${N_SCH}_${CPUSPERTASK}  --partition=${PARTITION} --ntasks-per-node=${NTASKS} --cpus-per-task=${CPUSPERTASK}  --time=${RUNTIME}  ${PATH_MACRO}/macro_dr/slurm/M_scheme_N_tasks.sh) 
 
 
-for i in $(seq 1 8);
+for i in $(seq 8 15);
 do
     export CONTINUATION_NUMBER=$i
     JOBID1=$(sbatch --parsable --dependency=afterany:$JOBID1 --job-name=C${N_SCH}_${CPUSPERTASK}_${CONTINUATION_NUMBER}   --partition=${PARTITION} --ntasks-per-node=${NTASKS} --cpus-per-task=${CPUSPERTASK}  --time=${RUNTIME}  ${PATH_MACRO}/macro_dr/slurm/M_scheme_N_tasks.sh) 

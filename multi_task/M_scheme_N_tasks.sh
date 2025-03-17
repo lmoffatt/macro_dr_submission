@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# this file allow you to set up to 16 different tasks in the same job
+# each task would have its specific SCHEME_DIR, PATH_MACRO_DR, EXPERIMENT, LIKELIHOOD, etc
+# it allows for continuation, using the continuation_number
 
 SCHEME_DIRS=(${SCHEME_DIR_0}  ${SCHEME_DIR_1}  ${SCHEME_DIR_2}  ${SCHEME_DIR_3} ${SCHEME_DIR_4}  ${SCHEME_DIR_5}  ${SCHEME_DIR_6}  ${SCHEME_DIR_7} ${SCHEME_DIR_8}  ${SCHEME_DIR_9}  ${SCHEME_DIR_10}  ${SCHEME_DIR_11} ${SCHEME_DIR_12}  ${SCHEME_DIR_13}  ${SCHEME_DIR_14}  ${SCHEME_DIR_15} )
 SCHEME_FILES=( ${SCHEME_0}  ${SCHEME_1} ${SCHEME_2}  ${SCHEME_3} ${SCHEME_4}  ${SCHEME_5} ${SCHEME_6}  ${SCHEME_7} ${SCHEME_8}  ${SCHEME_9} ${SCHEME_10}  ${SCHEME_11} ${SCHEME_12}  ${SCHEME_13} ${SCHEME_14}  ${SCHEME_15}  )
@@ -53,7 +56,7 @@ SCH_ABR=$([ "$SCHEME_DIR" = "models_Ag" ] && echo "_Ag" ||[ "$SCHEME_DIR" = "mod
 LOCAL_ID=$([ "$USE_LOCAL_ID" = 1 ] && echo ${SLURM_LOCALID} || echo "")
 
 
-if [ -n "${IDNAMES}" ];  then                                          
+if modelsthen                                          
    IDNAME=${IDNAMES[$SLURM_LOCALID]}
 else
    IDNAME=${PATH_MACRO_DR}${EXPER_ABR}${LIK_AB}_${SLURM_CPUS_PER_TASK}c_${N_SCOUTS}s_${N_BETA}b_${SCHEME}${SCH_ABR}_${LOCAL_ID}_0   

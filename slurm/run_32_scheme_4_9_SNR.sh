@@ -1,14 +1,14 @@
 #!/bin/bash
 
-export NTASKS=1
-CPUSPERTASK=32
+export NTASKS=2
+CPUSPERTASK=16
 
 export CP=$CPUSPERTASK
 
 export USE_LOCAL_ID=1
 
-export N_SCH=4
-N_SCH2=4
+export N_SCH=10
+N_SCH2=11
 
 export SCHEME_0=scheme_${N_SCH}
 export SCHEME_1=scheme_${N_SCH}
@@ -26,10 +26,8 @@ export PATH_MACRO_DRX=w9
 
 
 
-export LIK_0=DR
+export LIK_0=SNR
 export LIK_1=$LIK_0
-
-
 
 
 

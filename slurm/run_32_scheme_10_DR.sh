@@ -10,13 +10,13 @@ export USE_LOCAL_ID=1
 export N_SCH=10
 N_SCH2=10
 
-export SCHEME_0=scheme_${N_SCH}_inact_PI
-export SCHEME_1=scheme_${N_SCH}_inact_PI
+export SCHEME_0=scheme_${N_SCH}
+export SCHEME_1=scheme_${N_SCH}
 
 
 
-export SCHEME_DIR_0=models_Ag_log_baseline
-export SCHEME_DIR_1=models_Ag_log_baseline
+export SCHEME_DIR_0=models
+export SCHEME_DIR_1=models
 
 export PATH_MACRO_DR_0=w9
 export PATH_MACRO_DR_1=$PATH_MACRO_DR_0
