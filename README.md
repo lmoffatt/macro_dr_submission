@@ -6,11 +6,10 @@ This repository contains the exact code and analysis used for the submission of 
 
 ```
 macro_dr_submission/
-│── models/                   # Kinetic models used in the study
+│── models/                    # Kinetic models used in the study
 │── experiments/               # Experimental datasets analyzed
 │── scripts/                   # Scripts for running simulations and analysis
 │── slurm/                     # Slurm batch job scripts for cluster execution
-│── src/                       # Core implementation files
 │── CMakeLists.txt             # Build configuration for the project
 │── README.md                  # This document
 ```
@@ -19,7 +18,7 @@ macro_dr_submission/
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/macro_dr_submission.git
+git clone https://github.com/lmoffatt/macro_dr_submission.git
 cd macro_dr_submission
 ```
 
