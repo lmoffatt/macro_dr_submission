@@ -10,6 +10,6 @@ export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 #source ${PATH_MACRO}/macro_dr/clusters/${CLUSTER}.sh
     
 # run the program 
-srun ${PATH_MACRO}/macro_dr/multi_task/M_scheme_N_tasks.sh
+srun ${PATH_MACRO}/macro_dr/slurm/multi_task_M_scheme_N_tasks.sh
 
 
