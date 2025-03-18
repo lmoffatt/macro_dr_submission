@@ -42,11 +42,7 @@ cmake ..
 make -j$(nproc)
 ```
 
-### 4. Run an Example Simulation
-To test a single kinetic scheme locally:
-```bash
-./macro_dr models/scheme_1.txt
-```
+
 
 ## 🚀 Running MCMC Simulations
 
