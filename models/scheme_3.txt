@@ -1,7 +1,7 @@
 model = "scheme_3_inact"
 
-modelParameter = load_Parameter(filename = "../macro_dr/models/scheme_3_par.csv", separator="," )
+modelParameter = load_Parameter(filename = "../models/scheme_3_par.csv", separator="," )
 
-prior_model = load_Prior(filename = "../macro_dr/models/scheme_3_prior.csv", separator= ",")
+prior_model = load_Prior(filename = "../models/scheme_3_prior.csv", separator= ",")
 
-prior_model_name = "../macro_dr/models/scheme_3_prior.csv"
+prior_model_name = "../models/scheme_3_prior.csv"

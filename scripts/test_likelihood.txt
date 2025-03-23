@@ -1,0 +1,1 @@
+../models/scheme_10.txt  ../scripts/idealize_experiment_2.txt  ../scripts/simulation.txt  --runIdName=\"test_scheme_10\"  --num_scouts_per_ensemble=get_number\(n=32\)  --max_iter_equilibrium=get_number\(n=1000000\)  ../scripts/likelihood_DR.txt ../scripts/beta_4.txt ../scripts/calculate_likelihood.txt
