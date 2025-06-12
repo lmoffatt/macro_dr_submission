@@ -1,0 +1,747 @@
+---
+title: "Figure 6"
+author: "Luciano Moffatt"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+
+```{r setup}
+library(readr)
+library(tidyverse)
+library(envalysis)
+library(patchwork)
+library(cowplot)
+library(HDInterval)
+if (!requireNamespace("ConformationalModel", quietly = TRUE)) {
+  if (!requireNamespace("devtools", quietly = TRUE)) {
+    install.packages("devtools")
+  }
+  devtools::install_github("lmoffatt/ConformationalModel")
+}
+library(ConformationalModel)
+library(ggimage)
+library(thirdAxis)
+library(xtable)
+library(cowplot)
+```
+
+
+
+Figure 6 . The driving idea is how to get to the likelihood calculation. 
+
+First we show how the model predict the unitary current as a function of the number of rotated units. (A)
+
+With this information and the posterior states and the number of channels 
+we can predict the current (panel B).
+
+To get to the likelihood we need to model the variance of the predicted current. 
+There are three components that might vary with the length of the time interval: the white noise, the pink noise and the stochastic noise . C
+
+
+We then use this information to calculate the logLikelihood, which could be compared to the expected logLikelihood. D
+
+
+
+Lets see the requirements in terms of files of every panel. 
+
+A--> parameters. 
+
+B--> predictions
+
+C--> parameters and states
+
+D--> states
+
+
+##A
+
+
+
+First load the parameters
+```{r}
+f=c(
+  "./r_analysis/data/w9_IE_DR_32c_32s_4b_scheme_10_inact_PI_logbaseline_0_0_scheme_10_inact_c04c49f_192436s748577_10921472283437478284"
+)
+
+schemes=c("scheme_10")
+algorithms=c("DR")
+
+datas=c("full_experiment")
+repetitions=c(1)
+
+```
+
+
+```{r}
+format_significant <- function(x, digits=3) {
+  paste0(format(x, digits = digits, scientific = abs(x) >= 1e3 | abs(x) < 1e-2))
+}
+
+
+```
+
+
+
+
+```{r}
+
+d_par=data.frame()
+
+for (i in seq_len(length(f))){
+j=10
+file<- f[i]
+if(file.exists(paste0(file,ifelse(j>0,paste0("_",j),""),"__i_beta__i_walker__i_par.csv"))){
+tmp <- try(d_par0<-read.csv(paste0(file,ifelse(j>0,paste0("_",j),""),"__i_beta__i_walker__i_par.csv")))
+  if (!inherits(tmp, 'try-error')){
+  print(paste0(f[i]," run",j))
+  
+  d_par0$run=j
+ j=j+1
+ 
+while(file.exists(paste0(file,"_",j,"__i_beta__i_walker__i_par.csv"))){
+  tmp <- try(d2<-read.csv(paste0(file,"_",j,"__i_beta__i_walker__i_par.csv")))
+  
+  if (!inherits(tmp, 'try-error')){
+  d2$run=j
+  d_par0<-bind_rows(d_par0,d2)
+  print(paste0(" run",j))
+  }
+  else
+  {
+  print(paste0(file,"->error run",j))
+    
+  }
+   j=j+1
+ 
+}
+d_par0$scheme=schemes[i]
+d_par0$algorithm=algorithms[i]
+max_iter=max(d_par0$iter)
+d_par0$max_iter=max_iter
+
+d_par0$iter_cat=floor(d_par0$iter/(max_iter+1)*9)
+
+
+
+d_par<- bind_rows(d_par,d_par0)
+
+}
+else
+{
+  j=j+1
+  print("failed->",paste0(f[i]," run",j))
+  
+}
+}
+  
+}
+
+
+```
+
+
+```{r}
+d_prior=data.frame()
+
+for (i in seq_len(length(f))){
+d_p <-read.csv(paste0(f[i],"_prior.csv"))
+d_p$scheme=schemes[i]
+d_p$algorithm=algorithms[i]
+d_prior<-bind_rows(d_p,d_prior)
+}
+
+```
+
+```{r}
+d_prior%>%group_by(scheme, algorithm)%>%summarise(num_param=n())->scheme_par_count
+scheme_par_count
+```
+
+
+
+```{r}
+d_prior%>%filter(parameter_transformation!="Fixed", scheme=="scheme_10")->parlist
+parlist$parameter_name
+
+
+```
+
+
+```{r}
+d_par$parameter=parlist$parameter_name[d_par$i_p+1]
+d_par$parameter_expected=parlist$transformed_mean[d_par$i_p+1]
+d_par<-d_par%>% mutate(parameters=factor(parameter,levels=parlist$parameter_name))
+```
+
+
+```{r}
+
+fig_posteriors<-function(data,param_list, bw, labels=c()){
+  
+  
+  ggplot() +
+  geom_freqpoly(data = filter(data,beta==1,parameters %in% param_list), binwidth = bw, aes(10^par_value, after_stat(ndensity), color = scheme)) +
+  facet_grid(parameters ~ ., scales = "free", switch = "y", labeller= as_labeller(labels, default = label_parsed)) +
+  theme_classic()+
+  theme(
+    #panel.spacing.x = unit(1, "mm"),
+    strip.placement = "outside", # Moves strip to the right
+    strip.text.y.left =  element_text(angle = 0, hjust = 1,size = 7) ,# Ensures horizontal orientation
+     strip.background = element_blank(),
+    axis.text.y = element_blank(), # Removes y-axis text
+    axis.title.y = element_blank(), # Removes y-axis title
+    axis.ticks.y = element_blank(), 
+    axis.line.y = element_blank(), 
+    legend.position = "none",
+    axis.title.x = element_text(size = 7),       # Axis titles
+    axis.text.x = element_text(size = 6),        # Axis labels
+    plot.title = element_text(size = 7),        # Optional plot title, if needed
+) +
+     ylab("parameter value") +
+  scale_x_log10(labels = scales::label_log())
+}
+```
+
+
+
+
+
+```{r, fig.width=6, fig.height=8}
+
+fig_6A<-function(){
+
+d_par%>% filter((beta == 1.0)|(beta == 0.0), i_par>=10, i_par<13) %>%mutate(parameters=factor(parameter,levels=parlist$parameter_name), tr_par= factor(parameter,labels = parlist$parameter_transformation, levels = parlist$parameter_name), beta=factor(beta),  value= if_else(tr_par=="Log10",10^par_value, par_value) )%>%select(-parameter, - tr_par, -parameter_expected, -i_par, -par_value)%>%pivot_wider(names_from = parameters, values_from = value)%>%mutate(current_max = Leakeage_current_ratio*Rocking_Current_factor^(3)/(1+Leakeage_current_ratio*Rocking_Current_factor^(3)), current_3= Gating_Current, current_2 = Leakeage_current_ratio*Rocking_Current_factor^(2)/(1+Leakeage_current_ratio*Rocking_Current_factor^(2))/current_max*Gating_Current, current_1 = Leakeage_current_ratio*Rocking_Current_factor^(1)/(1+Leakeage_current_ratio*Rocking_Current_factor^(1))/current_max*Gating_Current, current_0 = Leakeage_current_ratio*Rocking_Current_factor^(0)/(1+Leakeage_current_ratio*Rocking_Current_factor^(0))/current_max*Gating_Current, current_2_3= current_2 / current_3, current_1_2 = current_1/current_2, current_0_1 = current_0/current_1)%>%select(-Rocking_Current_factor,-Leakeage_current_ratio,-Gating_Current)%>%pivot_longer(cols = starts_with("current_"),
+    )->d_parr0
+d_parr0%>%filter(name %in% c("current_0","current_1","current_2","current_3"),iter_cat>7, scheme=="scheme_10")%>%
+  mutate(name= recode(name,"current_0"="No rotated subunit",
+                      "current_1"="1 rotated subunit", 
+                      "current_2"="2 rotated subunits", 
+                      "current_3"="3 rotated subunits", 
+                      ))%>%
+  mutate(name= factor(name, levels=c(
+    "3 rotated subunits",
+    "2 rotated subunits",
+    "1 rotated subunit",
+    "No rotated subunit"
+    )))  ->d_parr
+
+prior_posterior_color_scale=c("prior"="#D3D3D3", "posterior"="#2C3E50")
+
+return (
+ggplot(d_parr)+geom_freqpoly(data=filter(d_parr,beta==1.0, name%in% c("No rotated subunit","1 rotated subunit")),aes(value, after_stat(ndensity),color="posterior"), binwidth=0.0001)+geom_freqpoly(data=filter(d_parr,beta==1.0, !name%in% c("No rotated subunit","1 rotated subunit")),aes(value, after_stat(ndensity),color="posterior"), binwidth=0.05)+
+    facet_grid(name ~ ., switch = "y") +
+  theme_classic()+
+  theme(
+    #panel.spacing.x = unit(1, "mm"),
+    strip.placement = "outside", # Moves strip to the right
+    strip.text.y.left =  element_text(angle = 0, hjust = 1,size = 7) ,# Ensures horizontal orientation
+     strip.background = element_blank(),
+    axis.text.y = element_blank(), # Removes y-axis text
+    axis.title.y = element_blank(), # Removes y-axis title
+    axis.ticks.y = element_blank(), 
+    axis.line.y = element_blank(), 
+    legend.position = "none",
+    axis.title.x = element_text(size = 7),       # Axis titles
+    axis.text.x = element_text(size = 6),        # Axis labels
+    plot.title = element_text(size = 7),        # Optional plot title, if needed
+) +
+     ylab("parameter value") +
+ scale_color_manual(values = prior_posterior_color_scale)+xlab("unitary current (pA)")
+)
+}
+fig_6A()
+```
+
+
+#B
+
+
+
+
+```{r}
+d_x=data.frame()
+
+for (i in seq_len(length(f))){
+d_x0 <-data.frame()
+j = 10
+while(file.exists(paste0(f[i],"_",j,"__i_beta__i_walker__i_x.csv"))){
+  tmp <- try(d3<-read.csv(paste0(f[i],"_",j,"__i_beta__i_walker__i_x.csv")))
+  
+  if (!inherits(tmp, 'try-error')){
+  d3$run=j
+  d_x0<-bind_rows(d_x0,d3)
+  print(paste0(f[i]," run",j))
+  }
+  else
+  {
+  print(paste0(f[i],"->error run",j))
+    
+  }
+  j=j+1
+ 
+}
+d_x0$scheme=schemes[i]
+d_x0$algorithm=algorithms[i]
+max_iter=max(d_x0$iter)
+d_x0$max_iter=max_iter
+d_x0$iter_cat=floor(d_x0$iter/(max_iter+1)*9)
+d_x<- bind_rows(d_x,d_x0)
+}
+
+```
+
+
+
+
+```{r}
+file_x= "./experiments/Moffatt_Hume_2007_ATP_time_idealized.txt"
+
+d_y=read.csv(file_x)
+i_step_max=max(d_y$i_step,na.rm = T)
+i_step_trace=(i_step_max+1)/7; 
+d_y$i_trace=floor(d_y$i_step/i_step_trace)  
+
+d_y=left_join(d_y,d_y%>%group_by(i_trace)%>%filter(time-i_trace*121<2, ATP_concentration>0)%>%summarise(t_pulse=min(time)))
+
+d_y$t=d_y$time-d_y$t_pulse
+
+
+
+```
+
+```{r}
+d_x%>%left_join(d_y, by=join_by(i_step,time), relationship = "many-to-many")->d_x
+```
+
+```{r}
+ATP_mM=c(0.1,0.2,0.5,1,2,5,10)
+d_x$ATP<-factor(ATP_mM[d_x$i_trace+1], levels = ATP_mM)
+
+```
+```{r}
+d_x$scheme<-factor(d_x$scheme, levels = schemes)
+
+```
+
+```{r}
+d_y$ATP<-factor(ATP_mM[d_y$i_trace+1], levels = ATP_mM)
+
+```
+
+```{r,fig.width=10, fig.height=10}}
+atp_colors <- c(
+  "0.1" = "#BDD7E7",  # Light blue (visible on white)
+  "0.2" = "#9ECAE1",  
+  "0.5" = "#6BAED6",
+  "1"   = "#4292C6",
+  "2"   = "#2171B5",
+  "5"   = "#08519C",
+  "10"  = "#08306B"    # Darkest blue
+)
+atp_colors <- c(
+  "0.1" = "#99C1DA",  # from original "#BDD7E7"
+  "0.2" = "#6AAED1",  # from original "#9ECAE1"
+  "0.5" = "#1C83BF",  # from original "#6BAED6"
+  "1"   = "#0058A7",  # from original "#4292C6"
+  "2"   = "#00258D",  # from original "#2171B5"
+  "5"   = "#000067",  # from original "#08519C"
+  "10"  = "#00001C"   # from original "#08306B"
+)
+atp_colors <- c(
+  "0.1" = "#440154",  # Deep purple, indicating low concentration
+  "0.2" = "#31688E",  # Dark blue
+  "0.5" = "#21918C",  # Teal
+  "1"   = "#35B779",  # Greenish
+  "2"   = "#6DCD59",  # Yellow-green
+  "5"   = "#B4DE2C",  # Light yellow-green
+  "10"  = "#FDE725" # Bright yellow, indicating high concentration
+  ,"Current_Noise"  = "gray",
+  "Pink_Noise"= "pink"
+  )
+
+atp_colors <- c(
+  # Viridis-based sequential colors (already colorblind-friendly)
+  "0.1" = "#440154",  # Deep purple
+  "0.2" = "#31688E",  # Dark blue
+  "0.5" = "#21918C",  # Teal
+  "1"   = "#35B779",  # Green
+  "2"   = "#6DCD59",  # Yellow-green
+  "5"   = "#B4DE2C",  # Light yellow-green
+  "10"  = "#FDE725",  # Bright yellow
+  
+  # Categorical noise colors (modified for accessibility)
+  "Current_Noise" = "#808080",  # Neutral gray (medium contrast)
+  "Pink_Noise"    = "#CC79A7"   # Accessible pink/magenta (from Okabe-Ito)
+)
+```
+
+
+```{r,fig.width=10, fig.height=10}}
+baseline_current=d_par%>%filter(iter_cat>7, scheme=="scheme_10", parameter=="Current_Baseline")%>%summarise(x=10^median(par_value))%>%pull()
+```
+
+
+```{r,fig.width=10, fig.height=10}}
+fig_ATP_pulse<-function(d_y){
+  xmin=min(d_y%>%filter(t>0)%>%summarise(min=min(t))%>%pull())
+  
+  d_y%>%filter(ATP==1)%>%ggplot()+
+    geom_step(aes(x=t, y=ATP_concentration/1000), direction = "vh")+
+    xlab("time since start of pulse (s)") + 
+    ylab("ATP (mM)")+
+    coord_cartesian(xlim = c(min(d_y$t), max(d_y$t)), clip = "off") +
+ 
+    scale_color_manual(values = atp_colors)+
+    annotate("text",x=xmin, y=1.2,label="0.2-10 mM ATP\n0.2 ms",size=7*25.4 / 72.27, hjust=0, vjust=0)+
+    annotate("text",x=10, y=1.2,label="1 mM ATP\n10 ms",size=7*25.4 / 72.27, hjust=0, vjust=0)+
+    ylim(0,2)+
+    scale_x_log10(limits=c(2e-5,75),labels = scales::label_log())+
+    theme_publish()+ 
+    theme(legend.position = "none",
+              axis.title = element_text(size = 7),       # Axis titles
+             axis.text = element_text(size = 7),        # Axis labels
+             plot.title = element_text(size = 7),
+          plot.margin = margin(
+        t=2,
+        r=0,
+        b = 0,
+        l=0,
+        unit = "pt"
+          ))
+}
+
+
+fig_ATP_pre_pulse<-function(d_y){
+  d<-  d_y %>%filter( t< -0.001, ATP==1)
+  
+  return(d%>%
+        ggplot()+
+        geom_line(aes(x=-t, y=ATP_concentration))+
+        theme_publish()+ 
+        ylim(0,2)+
+        annotate("text",x=0.5, y=0.2,label="before each ATP pulse",size=7*25.4 / 72.27, hjust=0.5, vjust=0)+  
+        scale_x_reverse()+
+        xlab("time to pulse (s)") +
+        ylab("pulse ATP (mM)")+
+          theme(legend.position = "none",
+              axis.title = element_text(size = 7),       # Axis titles
+             axis.text = element_text(size = 7),        # Axis labels
+             plot.title = element_text(size = 7, hjust = -0.35),
+             plot.subtitle = element_text(size=7, hjust = -0.12),
+             panel.spacing = unit(1,"mm"),
+            strip.text.y.left =  element_text(angle = 0, hjust = 1,size = 7) ,# Ensures horizontal orientation
+  
+          plot.margin = margin(
+        t=2,
+        r=0,
+        b = 0,
+        l=0,
+        unit = "pt"
+      ),
+            strip.background = element_blank()
+              )+
+          scale_color_manual(values = atp_colors)
+      )
+}
+fig_ATP_pre_pulse(d_y)+fig_ATP_pulse(d_y)+plot_layout(design = "
+                                                      ABB
+                                                      ")
+
+
+```
+
+
+
+```{r,fig.width=10, fig.height=10}}
+fig_current_pulse<-function(d_x,alpha){
+d<-d_x%>%
+    filter( beta==1, t>0, scheme %in%c("scheme_10"),# iter %in% myiters[1:2],
+            !is.na(Y_obs))
+
+
+    ggplot(d)+
+   geom_line(data=d%>%filter(t<4),aes(x=t, y=log10(baseline_current-Y_pred), group=interaction(i_trace,iter,i_walker),color=ATP), alpha=alpha)+
+   geom_segment(data=d%>%filter(t>2),aes(x=t-10,xend = t+10, y=log10(baseline_current-Y_pred),yend = log10(baseline_current-Y_pred), group=interaction(i_trace,iter,i_walker),color=ATP), alpha=alpha)+
+    
+      geom_point(aes(x=t, y=log10(baseline_current-Y_obs), color=ATP), size=0.7, alpha=1)+
+    scale_y_continuous(limits=c(log10(0.2),NA))+
+    scale_x_log10(limits=c(2e-5,75),labels = scales::label_log())+
+    theme_publish()+ 
+    xlab("time since start of pulse (s)") + 
+    ylab(expression(log[10]("mean current (pA)")))+
+    theme(legend.position = "none",
+              axis.title = element_text(size = 7),       # Axis titles
+             axis.text = element_text(size = 7),        # Axis labels
+             plot.title = element_text(size = 7),
+          plot.margin = margin(
+        t=0,
+        r=0,
+        b = 0,
+        l=0,
+        unit = "pt"
+      ))+
+    scale_color_manual(values = atp_colors)
+}
+
+
+fig_current_pre_pulse<-function(d_x,alpha){
+  d<-  d_x %>%filter( beta==1,t< -0.001, scheme %in%c("scheme_10")#, iter%in%myiters[1:2]
+                   )
+  
+  return(d%>%
+        ggplot()+
+        geom_line(aes(x=-t, y=baseline_current-Y_pred, group=interaction(i_trace,iter,i_walker),color=ATP), alpha=alpha)+
+        geom_point(aes(x=-t, y=baseline_current-Y_obs, color=ATP), size=0.7)+
+        theme_publish()+ 
+    scale_y_continuous( breaks=c(0,5) )+
+        facet_grid(ATP~.,switch = "y",labeller= as_labeller(
+          c("10"="10", "5"="5", "2"="2", "1"="1", "0.5"="0.5", "0.2"="0.2", "0.1"="0.1")
+          , default = label_parsed)) +
+        scale_x_reverse()+
+        xlab("time to pulse (s)") +
+        ylab("mean current (pA)")+
+        theme(legend.position = "none",
+              axis.title = element_text(size = 7),       # Axis titles
+             axis.text = element_text(size = 7),        # Axis labels
+             plot.title = element_text(size = 7, hjust = -0.35),
+             plot.subtitle = element_text(size=7, hjust = -0.12),
+             panel.spacing = unit(1,"mm"),
+            strip.text.y.left =  element_text(angle = 0, hjust = 1,size = 7) ,# Ensures horizontal orientation
+  
+          plot.margin = margin(
+        t=0,
+        r=0,
+        b = 0,
+        l=0,
+        unit = "pt"
+      ),
+            strip.background = element_blank()
+              )+
+          scale_color_manual(values = atp_colors)+
+      ggtitle("",subtitle = "ATP (mM)" )
+      )
+
+
+
+}
+
+dx_s<-d_x%>%filter(beta==1,iter_cat>7)
+myiters=unique(dx_s$iter)
+
+
+dd<-dx_s%>%filter(iter%in%sample(myiters,3))
+plot_grid(fig_current_pre_pulse(dd,0.1),NULL, fig_current_pulse(dd,0.1)+ggtitle("b"), nrow=1,align = "h", axis = "bt", rel_widths = c(0.5,0,1))
+
+```
+```{r}
+
+d_ts=unique(d_y%>%select(t,number_of_samples))%>%filter(number_of_samples>=1)
+
+d_par_noise<-d_par%>%filter(scheme=="scheme_10", beta==1,iter_cat>7, parameter%in%c("Current_Noise","Pink_Noise"))%>%slice_sample(n=1000)%>%select(parameter,iter,beta,iter_cat,i_walker,id_walker,par_value,scheme,algorithm)%>%pivot_wider(names_from = parameter, values_from = par_value)%>%cross_join(d_ts)
+
+figure_variance_pulse<-function(d_x, alpha,maxVar){
+fs=50e3
+
+dx_s<-d_x%>%filter(scheme=="scheme_10", beta==1, iter_cat>7, !is.na(Y_var)#, iter %in% myiters[1:2]
+                   )
+
+dx_s%>%filter( number_of_samples>=1, t>0, t<4)%>%ggplot()+
+  geom_line(aes(x=t,y=log10(Y_var), color=ATP, group=interaction(iter,id_walker,i_trace)), alpha=0.1)+
+    geom_segment(data=dx_s%>%filter(t>4),aes(x=t-10,xend = t+10, y=log10(Y_var),yend = log10(Y_var), group=interaction(i_trace,iter,i_walker),color=ATP), alpha=alpha)+
+ 
+  geom_line(data=d_par_noise, aes(x=t, y=log10(10^Current_Noise*fs/number_of_samples), group= interaction(iter,id_walker), color="Current_Noise"), alpha=alpha)+
+  geom_line(data=d_par_noise, aes(x=t, y=Pink_Noise, group= interaction(iter,id_walker), color="Pink_Noise"), alpha=alpha)+
+  annotate("text", x= 50e-6, y= log10(10), label="white noise",size=7*25.4 / 72.27,vjust=0 )+
+  annotate("text", x= 50e-6, y= log10(0.5), label="pink noise",size=7*25.4 / 72.27,vjust=0)+
+  scale_x_log10(limits=c(2e-5,75),labels = scales::label_log())+
+  scale_y_continuous(limits=c(log10(0.2),log10(maxVar)))+
+  scale_color_manual(values = atp_colors)+
+  xlab("time from pulse start (s)")+
+   ylab( expression(log[10](variance~(pA^2))))+
+    theme_classic()+
+  theme(legend.position = "none",
+         axis.title = element_text(size = 7),       # Axis titles
+             axis.text = element_text(size = 7),        # Axis labels
+             plot.title = element_text(size = 7),
+      plot.margin = margin(
+        t=0,
+        r=0,
+        b = 0,
+        l=0,
+        unit = "pt"
+      ))
+}
+
+
+figure_variance_pre_pulse<-function(d_x, alpha,maxVar){
+  fs=50e3
+
+dx_s<-d_x%>%filter(scheme=="scheme_10", beta==1, iter_cat>7, !is.na(Y_var))
+
+
+dx_s%>%filter( number_of_samples>=10, t<0)%>%ggplot()+
+  geom_line(aes(x=-t,y=log10(Y_var), color=ATP, group=interaction(iter,id_walker,i_trace)), alpha=alpha)+
+  geom_line(data=d_par_noise%>%filter(t<0), aes(x=-t, y=log10(10^Current_Noise*fs/number_of_samples), group= interaction(iter,id_walker), color="Current_Noise"), alpha=alpha)+
+  geom_line(data=d_par_noise%>%filter(t<0), aes(x=-t, y=Pink_Noise, group= interaction(iter,id_walker), color="Pink_Noise"), alpha=alpha)+
+  scale_y_continuous(limits=c(log10(0.2),log10(maxVar)))+
+  scale_color_manual(values = atp_colors)+
+scale_x_reverse()+
+        xlab("time to start of ATP pulse (s)") +
+        
+       ylab( expression(log[10](variance~(pA^2))))+
+  theme_classic()+
+        theme(legend.position = "none",
+             axis.title = element_text(size = 7),       # Axis titles
+             axis.text = element_text(size = 7),        # Axis labels
+             plot.title = element_text(size = 7, hjust = -0.35),
+        plot.margin = margin(
+        t=0,
+        r=0,
+        b = 0,
+        l=0,
+        unit = "pt"
+      ),
+          strip.text = element_text(color = "transparent"),
+            strip.background = element_blank()
+      )  
+}
+maxVar=max(dx_s$Y_var,na.rm = T)
+print(maxVar)
+plot_grid(figure_variance_pre_pulse(dd,1,maxVar),NULL, figure_variance_pulse(dd,1,maxVar), nrow=1, rel_widths = c(0.5,0,1))
+```
+
+```{r,fig.width=10, fig.height=10}}
+ln <- function(x) log(x)
+
+fig_likelihood_pulse<-function(d_x,alpha,minlogL, maxlogL){
+d<-d_x%>%
+    filter( beta==1, t>0, scheme %in%c("scheme_10"), #iter %in% myiters[1:2],
+            !is.na(Y_obs))
+
+
+    ggplot(d)+
+   geom_line(data=d%>%filter(t<4),aes(x=log10(t), y=pelogL, group=interaction(i_trace,iter,i_walker),color=ATP), alpha=alpha)+
+  
+   geom_segment(data=d%>%filter(t>2),aes(x=log10(t-10),xend = log10(t+10), y=pelogL,yend = pelogL, group=interaction(i_trace,iter,i_walker),color=ATP), alpha=alpha)+
+      geom_point(aes(x=log10(t), y=plogL, color=ATP), alpha=alpha, size=0.7)+
+    scale_x_continuous(limits=c(log10(2e-5),log10(75)))+
+    ylim(minlogL,maxlogL)+    
+    theme_publish()+ 
+    xlab(expression(log[10]("time from pulse begining (s)"))) + 
+    ylab(expression(ln(Likelihood[i])))+
+      
+    theme(legend.position = "none",
+           
+         axis.title = element_text(size = 7),       # Axis titles
+             axis.text = element_text(size = 7),        # Axis labels
+             plot.title = element_text(size = 7),
+    plot.margin = margin(
+        t=0,
+        r=0,
+        b = 0,
+        l=0,
+        unit = "pt"
+      ))+
+    scale_color_manual(values = atp_colors)
+}
+
+
+fig_likelihood_pre_pulse<-function(d_x,alpha,minlogL,maxlogL){
+  return(
+    d_x %>%filter( beta==1,t< -0.001, scheme %in%c("scheme_10")#, iter%in%myiters[1:2]
+                   )%>%
+        ggplot()+
+        geom_line(aes(x=-t, y=pelogL, group=interaction(i_trace,iter,i_walker),color=ATP), alpha=alpha)+
+        geom_point(aes(x=-t, y=plogL, color=ATP), alpha=alpha, size=0.3)+
+        theme_publish()+ 
+        scale_x_reverse()+
+       ylim(minlogL,maxlogL)+    
+        xlab("time to pulse (s)") +
+       ylab(expression(ln(Likelihood[i])))+
+        theme(legend.position = "none",
+         axis.title= element_text(size = 7),       # Axis titles
+             axis.text = element_text(size = 7),        # Axis labels
+             plot.title = element_text(size = 7, hjust = -0.35),
+          plot.margin = margin(
+        t=0,
+        r=0,
+        b = 0,
+        l=0,
+        unit = "pt"
+      ),
+          strip.text = element_text(color = "transparent"),
+            strip.background = element_blank()
+              )+
+          scale_color_manual(values = atp_colors)
+      )
+
+
+
+}
+minlogL=min(dx_s$plogL)
+maxlogL=max(dx_s$plogL)
+
+
+plot_grid(fig_likelihood_pre_pulse(d_x,1,minlogL,maxlogL),NULL, fig_likelihood_pulse(d_x,1,minlogL,maxlogL), nrow=1, rel_widths = c(0.5,-0.05,1))
+
+```
+```{r Fig 6, fig.width=180/25.4, fig.height=170/25.4}
+figure_6p<-function(d_x, alpha){
+maxVar=max(d_x$Y_var,na.rm = T )
+minlogL=min(d_x$plogL,na.rm = T)
+maxlogL=max(d_x$plogL,na.rm = T)
+
+x_only_ticks=theme(axis.title.x = element_blank(), axis.text.x = element_blank())
+y_only_ticks=theme(axis.title.y = element_blank(), axis.text.y = element_blank())
+no_y_axis= theme( axis.text.y = element_blank(), # Removes y-axis text
+         axis.title.y = element_blank(), # Removes y-axis title
+          axis.ticks.y = element_blank(), 
+        axis.line.y = element_blank())
+no_x_axis= theme( axis.text.x = element_blank(), # Removes y-axis text
+         axis.title.x = element_blank(), # Removes y-axis title
+          axis.ticks.x = element_blank(), 
+        axis.line.x = element_blank())
+y_no_title=theme(axis.title.y = element_blank())
+
+layout="
+   ABB
+   CDD
+   CDD
+   CDD
+   CDD
+   EFF
+   EFF
+   EFF
+   EFF
+   GHH
+   GHH
+   GHH
+   GHH
+   "
+
+return(
+    fig_ATP_pre_pulse(d_y) + no_x_axis+no_y_axis+ ggtitle("a") +
+    fig_ATP_pulse(d_y)+ no_x_axis+no_y_axis+ ggtitle("b") +
+    fig_current_pre_pulse(d_x, alpha) + x_only_ticks+
+    fig_current_pulse(d_x, alpha) + x_only_ticks+
+    figure_variance_pre_pulse(d_x, alpha, maxVar) + x_only_ticks + ggtitle("c")+
+    figure_variance_pulse(d_x, alpha, maxVar) + x_only_ticks + no_y_axis+
+    fig_likelihood_pre_pulse(d_x, alpha, minlogL, maxlogL) + ggtitle("d")+
+    fig_likelihood_pulse(d_x, alpha, minlogL, maxlogL) + no_y_axis+
+    plot_layout(design = layout, axes = "collect")
+
+)
+}
+
+figure_6p(dd,0.1)
+ggsave2("./r_analysis/results/Figure 6.pdf", width = 180, height = 170, units="mm")
+ggsave("./r_analysis/results/Figure_6.pdf",device =cairo_pdf, dpi = 300, width = 180, height = 170 ,units = "mm")
+
+
+```
+
+```{r}
+sessionInfo()
+```
+

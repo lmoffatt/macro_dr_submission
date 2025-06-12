@@ -1,0 +1,264 @@
+---
+title: "PSRF"
+author: "Luciano Moffatt"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+f=c("./r_analysis/data/w9_IE_DR_32c_32s_4b_scheme_4_inact_PI_logbaseline_0_0_scheme_4_inact_c04c49f_192429s339391_9763489321247989362"
+,"./r_analysis/data/w9_IE_DR_32c_32s_4b_scheme_9_inact_PI_logbaseline__0_scheme_9_inact_c04c49f_192416s931142_12287622095791405289"  
+,"./r_analysis/data/w9_IE_DR_32c_32s_4b_scheme_10_inact_PI_logbaseline_0_0_scheme_10_inact_c04c49f_192436s748577_10921472283437478284"
+,"./r_analysis/data/w9_IE_DR_32c_32s_4b_scheme_11_inact_PI_logbaseline_0_0_scheme_11_inact_c04c49f_192425s711185_9045678489066680078"
+  
+,"./r_analysis/data/w9_IE_DR_16c_32s_4b_scheme_1_inact_PI_logbaseline__0_scheme_1_inact_dc1d295_223334s263487_8310266929510757478"
+,"./r_analysis/data/w9_IE_DR_16c_32s_4b_scheme_2_inact_PI_logbaseline__0_scheme_2_inact_dc1d295_223334s291216_2697291069142075057"
+,"./r_analysis/data/w9_IE_DR_16c_32s_4b_scheme_3_inact_PI_logbaseline__0_scheme_3_inact_dc1d295_223506s305519_13860605603193989031"
+,"./r_analysis/data/w9_IE_DR_8c_32s_4b_scheme_4_inact_PI_logbaseline__0_scheme_4_inact_dc1d295_214825s965796_7939387029674022631"
+,"./r_analysis/data/w9_IE_DR_16c_32s_4b_scheme_5_inact_PI_logbaseline__0_scheme_5_inact_dc1d295_223506s299557_5119792080078986291"
+,"./r_analysis/data/w9_IE_DR_16c_32s_4b_scheme_6_inact_PI_logbaseline_0_0_scheme_6_inact_c04c49f_185512s714374_18365181060512183813"
+,"./r_analysis/data/w9_IE_DR_16c_32s_4b_scheme_7_inact_PI_logbaseline_0_0_scheme_7_inact_c04c49f_185514s709189_2269608144678804496"
+,"./r_analysis/data/w9_IE_DR_64c_32s_4b_scheme_7_inact_PI_logbaseline__0_scheme_7_inact_dc1d295_120304s106971_11772801414124283307"
+,"./r_analysis/data/w9_IE_DR_8c_32s_4b_scheme_8_inact_PI_logbaseline__0_scheme_8_inact_dc1d295_214837s486785_14256113690662679817"
+,"./r_analysis/data/w9_IE_DR_8c_32s_4b_scheme_9_inact_PI_logbaseline__0_scheme_9_inact_dc1d295_214836s626989_9643364841238627784"
+,"./r_analysis/data/w9_IE_SNR_16c_32s_4b_scheme_1_inact_PI_logbaseline__0_scheme_1_inact_dc1d295_223333s938967_10669961719330648728"
+,"./r_analysis/data/w9_IE_SNR_16c_32s_4b_scheme_2_inact_PI_logbaseline__0_scheme_2_inact_dc1d295_223334s259380_14267539618218186771"
+,"./r_analysis/data/w9_IE_SNR_16c_32s_4b_scheme_3_inact_PI_logbaseline__0_scheme_3_inact_dc1d295_223506s12275_11155925867724252125"
+,"./r_analysis/data/w9_IE_SNR_8c_32s_4b_scheme_4_inact_PI_logbaseline__0_scheme_4_inact_dc1d295_214825s994106_2411327980505654543"
+
+,"./r_analysis/data/w9_IE_SNR_16c_32s_4b_scheme_5_inact_PI_logbaseline__0_scheme_5_inact_dc1d295_223506s273848_6864271229892764521"
+,"./r_analysis/data/w9_IE_SNR_16c_32s_4b_scheme_6_inact_PI_logbaseline_1_0_scheme_6_inact_c04c49f_185512s707148_13419798712961365324"
+,"./r_analysis/data/w9_IE_SNR_16c_32s_4b_scheme_7_inact_PI_logbaseline_1_0_scheme_7_inact_c04c49f_185514s630597_2814228287119122003"
+,"./r_analysis/data/w9_IE_SNR_64c_32s_4b_scheme_7_inact_PI_logbaseline__0_scheme_7_inact_dc1d295_061441s611280_16273321531980792390"
+,"./r_analysis/data/w9_IE_SNR_8c_32s_4b_scheme_8_inact_PI_logbaseline__0_scheme_8_inact_dc1d295_214836s679427_13024900767729018640"
+,"./r_analysis/data/w9_IE_SNR_8c_32s_4b_scheme_9_inact_PI_logbaseline__0_scheme_9_inact_dc1d295_214837s246056_15983947036721080527"
+,"./r_analysis/data/w9_IE_SNR_16c_32s_4b_scheme_10_inact_PI_logbaseline_0_0_scheme_10_inact_c04c49f_233118s322352_16423496262467810219"
+,"./r_analysis/data/w9_IE_SNR_16c_32s_4b_scheme_11_inact_PI_logbaseline_1_0_scheme_11_inact_c04c49f_233118s294728_4762429087681128461"
+
+)
+
+
+
+
+schemes=c("scheme_4_inactd","scheme_9_inactd","scheme_10_inactd","scheme_11_inactd",
+           "scheme_1_inact","scheme_2_inact","scheme_3_inact","scheme_4_inact","scheme_5_inact",            "scheme_6_inactd",
+          "scheme_7_inactd",
+          "scheme_7_inacts","scheme_8_inact","scheme_9_inact","scheme_1_inact","scheme_2_inact","scheme_3_inact","scheme_4_inact","scheme_5_inact","scheme_6_inact","scheme_7_inact","scheme_7_inacts","scheme_8_inact","scheme_9_inact","scheme_10_inact","scheme_11_inact")
+
+schemes_id=c("scheme_4","scheme_9","scheme_10","scheme_11",
+          "scheme_1","scheme_2","scheme_3","scheme_4","scheme_5","scheme_6",
+          "scheme_7",
+          "scheme_7","scheme_8",
+          "scheme_9","scheme_1","scheme_2","scheme_3","scheme_4","scheme_5","scheme_6","scheme_7","scheme_7","scheme_8","scheme_9","scheme_10","scheme_11")
+
+cluster=c("dirac"
+,"dirac"  
+,"dirac"
+,"dirac"
+  
+,"tupac"
+,"tupac"
+,"tupac"
+,"tupac"
+,"tupac"
+,"dirac"
+,"dirac"
+,"serafin"
+,"tupac"
+,"tupac"
+,"tupac"
+,"tupac"
+,"tupac"
+,"tupac"
+
+,"tupac"
+,"dirac"
+,"dirac"
+,"serafin"
+,"tupac"
+,"tupac"
+,"dirac"
+,"dirac"
+)
+
+
+
+models=c("conventional","conformational","conformational","conformational","conventional",
+         "conventional","conventional","conventional","allosteric","allosteric","allosteric","allosteric","conformational","conformational","conventional",
+         "conventional","conventional","conventional","allosteric","allosteric","allosteric","allosteric","conformational","conformational","conformational","conformational")
+
+algorithms=c("DR","DR","DR","DR","DR","DR","DR","DR","DR","DR","DR","DR","DR","DR",
+            "DNR","DNR","DNR","DNR","DNR","DNR","DNR","DNR","DNR","DNR","DNR","DNR")
+```
+
+
+```{r}
+cpus=c(32,32,32,32
+,16,16
+,16,32,16,16,16
+,32,16,16
+,16,16
+,16,32
+,16,16,16,32,16,16,16,16)
+
+processor=c("tupac"="AMD Opteron 6276", "serafin"="AMD EPYC 7302P", "dirac"="Xeon E5-2670")
+
+```
+
+```{r}
+
+# Define the destination directory
+destination_dir <- "./r_analysis/results/"
+
+# Ensure the destination directory exists
+if (!dir.exists(destination_dir)) {
+  dir.create(destination_dir, recursive = TRUE)
+}
+
+# Iterate over each wildcard path
+for (pattern in f) {
+  # Expand the wildcard pattern to actual file paths
+  matching_files <- Sys.glob(paste0(pattern, "*"))
+  
+  # Move each matching file to the destination directory
+  for (file in matching_files) {
+    file.rename(file, file.path(destination_dir, basename(file)))
+  }
+}
+
+cat("File transfer complete.\n")
+
+```
+```{r}
+get_matching_size <- function(pattern) {
+  # Append wildcard to the pattern
+  full_pattern <- paste0(pattern, "*")
+  
+  # Find matching files
+  matching_files <- Sys.glob(full_pattern)
+  
+  if (length(matching_files) == 0) {
+    return(NA) # Return NA if no files match
+  }
+  
+  # Get total size of matching files
+  total_size <- sum(file.info(matching_files)$size, na.rm = TRUE)
+  
+  return(total_size)
+}
+
+sizes <- sapply(f, get_matching_size)
+
+# Create output dataframe
+size_df <- data.frame(
+  Path_Prefix = f,
+  Size_Bytes = sizes,
+  Size_MB = round(sizes / (1024^2), 2),  # Convert to MB
+  Size_GB = round(sizes / (1024^3), 2)   # Convert to GB
+)
+size_df
+```
+
+
+```{r}
+
+ds=list()
+for (i in seq_len(length(f))){
+dds=list()
+d2 <-data.frame()#read.csv(paste0(f[i],"__i_iter.csv"))
+#print(paste0(schemes[i]," run"))
+#  d2$run=0
+#  dds[[1]]<-d2
+  
+if (schemes[i]%in%c("scheme_4_inactd", "scheme_9_inactd", "scheme_10_inact1", "scheme_10_inact2")) j=2 else j=10
+while(file.exists(paste0(f[i],"_",j,"__i_beta__i_walker.csv"))| j==1){
+  tmp <- try(d2<-read.csv(paste0(f[i],"_",j,"__i_beta__i_walker.csv")))
+  
+  if (!inherits(tmp, 'try-error')){
+    
+  d2$run=j
+  dds[[j+1]] <- d2
+  print(paste0(schemes[i]," run",j))
+  }
+  j=j+1
+}
+d_iter <- bind_rows(dds)
+d_iter$scheme_id = schemes_id[i]
+d_iter$scheme = schemes[i]
+d_iter$model = models[i]
+d_iter$algorithm = algorithms[i]
+max_iter=max(d_iter$iter, na.rm = T)
+
+d_iter$iter_cat=floor(d_iter$iter/(max_iter+1)*9)
+
+ds[[i]]=d_iter
+}
+
+```
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(posterior)
+# Filter and reshape the data
+
+mcmc_analisis<-data.frame()
+for (i in seq_len(length(f))){
+
+
+
+dm <- ds[[i]] %>%
+  filter(beta == 1, iter_cat>5) %>%
+    select(iter,iter_cat,i_walker,log_Evidence)
+dm<-dm%>%group_by(iter)%>%mutate(sd_log_Evidence=sd(log_Evidence))%>%ungroup()
+
+dm_6<-dm%>%filter(sd_log_Evidence<100)%>%select(log_Evidence)
+dm_8<-dm%>%filter(sd_log_Evidence<100, iter_cat>7)%>%select(log_Evidence)
+# Convert mcmc.list to an array
+
+
+mcmc_df_6<- as_draws_df(tibble(dm_6),.nchains=32)
+mcmc_df_8<- as_draws_df(tibble(filter(dm_8)),.nchains=32)
+
+# Compute R-hat
+dr<-summarise_draws(mcmc_df_6)
+dr$scheme=schemes[i]
+dr$algorithm=algorithms[i]
+dr$max_iter=max(ds[[i]]$iter, na.rm = T)
+dr$max_time=max(ds[[i]]$iter_time/24/3600, na.rm = T)
+dr$iter_cat=6
+dr$cpus=cpus[i]
+dr$processor=processor[cluster[i]]
+mcmc_analisis<-bind_rows(mcmc_analisis,dr)
+dr<-summarise_draws(mcmc_df_8)
+dr$scheme=schemes[i]
+dr$algorithm=algorithms[i]
+dr$max_iter=max(ds[[i]]$iter, na.rm = T)
+dr$max_time=max(ds[[i]]$iter_time/24/3600, na.rm = T)
+dr$iter_cat=8
+dr$cpus=cpus[i]
+dr$processor=processor[cluster[i]]
+mcmc_analisis<-bind_rows(mcmc_analisis,dr)
+}
+
+mcmc_analisis
+```
+```{r}
+write_csv(mcmc_analisis, "./r_analysis/results/mcmc_analisis.csv")
+```
+
+
+```{r}
+sessionInfo()
+```

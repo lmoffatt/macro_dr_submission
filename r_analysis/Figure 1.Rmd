@@ -1,0 +1,1172 @@
+---
+title: "Paper Figure 1"
+author: "Luciano Moffatt"
+date: "2024-12-23"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+
+```{r setup}
+library(readr)
+library(tidyverse)
+library(envalysis)
+
+library(patchwork)
+library(HDInterval)
+library(extrafont)
+#font_import(paths = "/usr/share/fonts/truetype/msttcorefonts", prompt = FALSE)
+#loadfonts(device = "pdf")        # registra para pdf() y cairo_pdf()
+#library(extrafont)
+if (!requireNamespace("ConformationalModel", quietly = TRUE)) {
+  if (!requireNamespace("devtools", quietly = TRUE)) {
+    install.packages("devtools")
+  }
+  devtools::install_github("lmoffatt/ConformationalModel")
+}
+library(ConformationalModel)
+library(ggimage)
+```
+
+
+
+```{r}
+library(ggplot2)
+
+```
+
+
+```{r}
+theme_nature_no_axis<-theme_nature()+theme(axis.line = element_blank(),  # Remove axis lines
+        axis.text = element_blank(),  # Remove axis text
+        axis.ticks = element_blank(), # Remove axis ticks
+        axis.title = element_blank()) # Remove axis titles
+
+```
+
+
+
+Fist we build functions that produce the kinetic schemes drawings
+
+
+
+```{r regular schemes}
+
+regular_scheme_states_data_frame <- function(number_of_states, x, y, state_symbol)
+{
+  d_states_symbol <- data.frame(
+    i_state = 1:number_of_states,
+    x = x,
+    y = y,
+    state_symbol = state_symbol
+  )
+  
+}
+
+regular_scheme_arrows_data_frame <- function(d_states_symbol,
+                                             i_state_from,
+                                             i_state_to) {
+  d_arrows = data.frame(i_state_from, i_state_to)
+  
+  d_arrows <- left_join(d_arrows,
+                        d_states_symbol %>% select(i_state, x, y),
+                        by = join_by(i_state_from == i_state)) %>%
+    left_join(
+      d_states_symbol %>% select(i_state, x, y),
+      by = join_by(i_state_to == i_state),
+      suffix = c("i", "j")
+    )
+}
+
+
+
+geom_regular_scheme <- function(d_states_symbol,
+                                d_arrows,
+                                symbol_label_size = 8,
+                                symbol_color = "black",
+                                arrow_color = "black",
+                                state_radius = 0.15,
+                                gap = 2,
+                                shift = 0.25,
+                                head_size = 0.5) {
+  return (
+    ggplot(d_states_symbol, aes(x = x, y = y)) +
+      geom_text(
+        aes(label = state_symbol),
+        size.unit="pt",
+        parse = TRUE,
+        size = symbol_label_size,
+        color = symbol_color
+      ) +
+      geom_blank() +
+      ggplot2::coord_fixed() +
+    theme_nature()+
+      geom_half_arrow(
+        x = d_arrows$xi,
+        y = d_arrows$yi ,
+        xend = d_arrows$xj,
+        yend = d_arrows$yj,
+        color = arrow_color,
+        alpha = 1,
+        linetype = 1,
+        linewidth = 0.1,
+        gap = gap * state_radius,
+        head_size = head_size * state_radius,
+        shift = state_radius * shift,
+        head_angle = pi / 2 / 3
+      ) +
+  scale_x_continuous(expand = expansion(mult = 0.1)) +  # 10% padding on x axis
+  scale_y_continuous(expand = expansion(mult = 0.1)) +
+      theme(
+        plot.margin = margin(0, 0, 0, 0),
+        # Remove all margins
+        legend.position = "none",         
+        axis.title = element_blank(),         
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size=6),
+        panel.background = element_blank(),
+      )+theme_nature_no_axis
+  )
+}
+
+
+```
+
+```{r}
+
+geom_scheme_4<-function(symbol_label_size,symbol_color="black",arrow_color="black"){
+number_of_states =8
+x <- c(0,1,2,3,4,5,5,6)
+y <- c(0,0,0,0,0,1,-1,0)
+
+state_symbol<-c("C[1]","CA[1]","CA[2]","CA[3]","F","O[1]","O[2]","D")
+i_state_from = c(1,2,2,3,3,4,4,5,5,6,5,7,6,8,7,8)
+i_state_to =   c(2,1,3,2,4,3,5,4,6,5,7,5,8,6,8,7)
+
+d_state_symbol<-regular_scheme_states_data_frame(number_of_states,x,y,state_symbol)
+
+d_arrows<-regular_scheme_arrows_data_frame(d_state_symbol,i_state_from, i_state_to = i_state_to)
+
+return (
+  geom_regular_scheme(d_states_symbol = d_state_symbol,d_arrows = d_arrows,symbol_label_size = symbol_label_size, symbol_color = symbol_color, arrow_color = arrow_color )
+
+)
+}
+```
+
+```{r}
+geom_scheme_4(symbol_label_size = 6)
+```
+
+
+```{r}
+
+geom_scheme_6 <- function(symbol_label_size=6) {
+  n_conf_changes = 3
+  state_symbol = c("R", "RA", "R", "F", "C", "O")
+  
+  pos_x_changes = c(0, 0, sqrt(0.75))
+  pos_y_changes = c(0.5, -0.5, 0)
+  d = 4
+  delta_y_state = 0.15
+  delta_x_Conf_change = 0.15
+  delta_y_Conf_change = 1.5
+  delta_flap_Conf_change = 0.2
+  
+  
+  
+  state_radius = 0.2
+  label_color = 1
+  gap = 2
+  shift = 0.25
+  head_size = 0.5
+  sizes = 2
+  
+  
+  i_state = 1:(2 * n_conf_changes)
+  
+  i_change <- 1:n_conf_changes
+  
+  pos_x_changes <- pos_x_changes * d
+  pos_y_changes <- pos_y_changes * d
+  
+  
+  d_changes <- data.frame(i_change, x = pos_x_changes, y = pos_y_changes)
+  
+  delta_y_state = delta_y_state * d
+  
+  delta_x_Conf_change = delta_x_Conf_change * d
+  
+  delta_y_Conf_change = delta_y_Conf_change * delta_y_state
+  
+  delta_flap_Conf_change = delta_flap_Conf_change * delta_x_Conf_change
+  
+  x_left_br <- c(1, 0, 0, 1) * delta_flap_Conf_change+-1 * delta_x_Conf_change
+  
+  y_left_br <- c(1, 1, -1, -1) * delta_y_Conf_change
+  
+  x_br <- rep(c(x_left_br, -x_left_br), n_conf_changes) + rep(pos_x_changes, each =
+                                                                4)
+  y_br <- rep(c(y_left_br, y_left_br), n_conf_changes) + rep(pos_y_changes, each =
+                                                               4)
+  
+  i_br <- rep(i_state, each = 4)
+  
+  d_br <- data.frame(x = x_br, y = y_br, i_g = i_br)
+  
+  x <- rep(pos_x_changes, each = 2)
+  y <- rep(pos_y_changes, each = 2) + rep(c(1, -1), n_conf_changes) * delta_y_state
+  
+  
+  d_states_symbol_6 <- data.frame(i_state, x, y, state_symbol)
+  #                        5       9      13      17      21
+  i_state_from = c(1, 2, 3, 4, 5, 6)
+  i_state_to =   c(2, 1, 4, 3, 6, 5)
+  
+  x_brack_subindex <- pos_x_changes + delta_x_Conf_change * (1 + 0.2)
+  y_brack_subindex <- pos_y_changes - delta_y_Conf_change * (1 + 0.2)
+  
+  label_brack_subindex <- c("3", "", "")
+  
+  d_brack_sub <- data.frame(x = x_brack_subindex, y = y_brack_subindex, label = label_brack_subindex)
+  
+  
+  i_conf_inter <- c(1, 2, 1)
+  j_conf_inter <- c(2, 3, 3)
+  
+  label_conf_inter <- c("<<B>>", "<<C>>", "<<A>>")
+  d_conf = data.frame(i_conf_inter, j_conf_inter)
+  
+  d_conf <- left_join(d_conf, d_changes, by = join_by(i_conf_inter == i_change)) %>%
+    left_join(d_changes,
+              by = join_by(j_conf_inter == i_change),
+              suffix = c("i", "j"))
+  
+  d_conf$label = label_conf_inter
+  
+  d_conf$x = (d_conf$xi + d_conf$xj) * 0.5
+  d_conf$y = (d_conf$yi + d_conf$yj) * 0.5
+  
+  dx = d_conf$xi - d_conf$xj
+  dy = d_conf$yi - d_conf$yj
+  angle <- atan(-dy / -dx) * 180 / pi
+  
+  angle <- ifelse (angle < -89, 90, angle)
+  d_conf$angle <- angle
+  
+  
+  d_arrows_6 = data.frame(i_state_from, i_state_to)
+  
+  d_arrows_6 <- left_join(
+    d_arrows_6,
+    d_states_symbol_6 %>% select(-state_symbol),
+    by = join_by(i_state_from == i_state)
+  ) %>%
+    left_join(
+      d_states_symbol_6 %>% select(-state_symbol),
+      by = join_by(i_state_to == i_state),
+      suffix = c("i", "j")
+    )
+  
+  
+  return (
+    ggplot(d_states_symbol_6, aes(x = x, y = y)) +
+      geom_text(aes(label = state_symbol),size.unit="pt",
+         parse = TRUE, size = symbol_label_size) +
+      geom_path(data = d_br, aes(
+        x = x, y = y, group = i_g
+      )) +
+      geom_text(
+        data = d_brack_sub,
+        aes(x = x, y = y, label = label),
+        size.unit="pt",
+        vjust = "bottom",
+        hjust = "left",
+        size = symbol_label_size
+      ) +
+      geom_blank(data = d_brack_sub, aes(x = x, y = y)) +
+      
+      geom_text(
+        data = d_conf,
+        aes(
+          x = x,
+          y = y,
+          label = label,
+          angle = angle
+        ),
+        size.unit="pt",
+        size = symbol_label_size
+      ) +
+      #ggplot2::coord_fixed() + 
+      theme_nature()+
+    
+      theme(
+        plot.margin = margin(0, 0, 0, 0),
+        # Remove all margins
+        panel.spacing = unit(0, "lines")  # Remove any extra panel spacing
+      ) +
+      geom_half_arrow(
+        x = d_arrows_6$xi,
+        y = d_arrows_6$yi ,
+        xend = d_arrows_6$xj,
+        yend = d_arrows_6$yj,
+        color = "black",
+        alpha = 1,
+        linetype = 1,
+        linewidth = 0.3,
+        gap = gap * state_radius,
+        head_size = head_size * state_radius,
+        shift = state_radius * shift,
+        head_angle = pi / 2 / 3
+      ) +
+      theme(
+        legend.position = "none",         
+        axis.title = element_blank(),         
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        plot.background = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size=6),
+        plot.margin = margin(0, 0, 0, 0)
+      )
+  )
+}
+
+
+```
+
+
+
+
+```{r}
+
+geom_scheme_7 <- function(symbol_label_size = 6) {
+  state_radius = 0.2
+  label_color = 1
+  gap = 2
+  shift = 0.25
+  head_size = 0.5
+  sizes = 2
+  
+  n_conf_changes = 3
+  
+  i_state = 1:(2 * n_conf_changes)
+  
+  i_change <- 1:n_conf_changes
+  
+  
+  d = 4
+  pos_x_changes <- c(-0.5, 0, 0.5) * d
+  pos_y_changes <- c(0, sqrt(0.75), 0) * d
+  
+  pos_x_changes <- c(0, 0, sqrt(0.75)) * d
+  pos_y_changes <- c(0.45, -0.45, 0) * d
+  
+  d_changes <- data.frame(i_change, x = pos_x_changes, y = pos_y_changes)
+  delta_y_state = 0.15 * d
+  
+  delta_x_Conf_change = 0.15 * d
+  
+  delta_y_Conf_change = 1.5 * delta_y_state
+  
+  delta_flap_Conf_change = 0.2 * delta_x_Conf_change
+  
+  x_left_br <- c(1, 0, 0, 1) * delta_flap_Conf_change+-1 * delta_x_Conf_change
+  
+  y_left_br <- c(1, 1, -1, -1) * delta_y_Conf_change
+  
+  x_br <- rep(c(x_left_br, -x_left_br), n_conf_changes) + rep(pos_x_changes, each =
+                                                                4)
+  y_br <- rep(c(y_left_br, y_left_br), n_conf_changes) + rep(pos_y_changes, each =
+                                                               4)
+  
+  i_br <- rep(i_state, each = 4)
+  
+  d_br <- data.frame(x = x_br, y = y_br, i_g = i_br)
+  
+  
+  x_left_br <- c(1, 0, 0, 1) * delta_flap_Conf_change * 1.1+-1.3 * delta_x_Conf_change
+  
+  y_left_br <- c(1, 1, -1, -1) * (delta_y_Conf_change * 1.3 + d * 0.45)
+  
+  x_br <- c(x_left_br, -x_left_br) + pos_x_changes[1] * 0.5 + pos_x_changes[2] *
+    0.5
+  y_br <- c(y_left_br, y_left_br) +  pos_y_changes[1] * 0.5 + pos_y_changes[2] *
+    0.5
+  i_br <- rep(c(1, 2), each = 4)
+  
+  d_giant_br <- data.frame(x = x_br, y = y_br, i_g = i_br)
+  
+  
+  x <- rep(pos_x_changes, each = 2)
+  y <- rep(pos_y_changes, each = 2) + rep(c(1, -1), n_conf_changes) * delta_y_state
+  
+  
+  state_symbol <- c("R", "RA", "R", "F", "C", "O")
+  
+  
+  
+  d_states_symbol_6 <- data.frame(i_state, x, y, state_symbol)
+  #                        5       9      13      17      21
+  i_state_from = c(1, 2, 3, 4, 5, 6)
+  i_state_to =   c(2, 1, 4, 3, 6, 5)
+  
+  x_brack_subindex <- pos_x_changes + delta_x_Conf_change * 1.2 * (1 + 0.2)
+  y_brack_subindex <- pos_y_changes - delta_y_Conf_change * 1.2 * (1 + 0.2)
+  
+  label_brack_subindex <- c("", "3", "")
+  
+  d_brack_sub <- data.frame(x = x_brack_subindex, y = y_brack_subindex, label = label_brack_subindex)
+  
+  
+  i_conf_inter <- c(1, 2, 1)
+  j_conf_inter <- c(2, 3, 3)
+  
+  label_conf_inter <- c("<<B>>", "<<C>>", "<<A>>")
+  d_conf = data.frame(i_conf_inter, j_conf_inter)
+  
+  d_conf <- left_join(d_conf, d_changes, by = join_by(i_conf_inter == i_change)) %>%
+    left_join(d_changes,
+              by = join_by(j_conf_inter == i_change),
+              suffix = c("i", "j"))
+  
+  d_conf$label = label_conf_inter
+  
+  d_conf$x = (d_conf$xi + d_conf$xj) * 0.5
+  d_conf$y = (d_conf$yi + d_conf$yj) * 0.5
+  
+  dx = d_conf$xi - d_conf$xj
+  dy = d_conf$yi - d_conf$yj
+  angle <- atan(-dy / -dx) * 180 / pi
+  
+  angle <- ifelse (angle < -89, 90, angle)
+  d_conf$angle <- angle
+  
+  
+  d_arrows_6 = data.frame(i_state_from, i_state_to)
+  
+  d_arrows_6 <- left_join(
+    d_arrows_6,
+    d_states_symbol_6 %>% select(-state_symbol),
+    by = join_by(i_state_from == i_state)
+  ) %>%
+    left_join(
+      d_states_symbol_6 %>% select(-state_symbol),
+      by = join_by(i_state_to == i_state),
+      suffix = c("i", "j")
+    )
+  
+  return (
+    ggplot(d_states_symbol_6, aes(x = x, y = y)) +
+      geom_text(aes(label = state_symbol),size.unit="pt",
+         parse = TRUE, size = symbol_label_size) +
+      geom_path(data = d_br, aes(
+        x = x, y = y, group = i_g
+      )) +
+      geom_path(data = d_giant_br, aes(
+        x = x, y = y, group = i_g
+      )) +
+      geom_text(
+        data = d_brack_sub,
+        aes(x = x, y = y, label = label),
+        size.unit="pt",
+        vjust = "bottom",
+        hjust = "left",
+        size = symbol_label_size
+      ) +
+      geom_blank(data = d_brack_sub, aes(x = x, y = y)) +
+      
+      geom_text(
+        data = d_conf,
+        aes(
+          x = x,
+          y = y,
+          label = label,
+          angle = angle
+        ),
+        size.unit="pt",
+        size = symbol_label_size
+      ) +theme_nature()+
+    
+      #ggplot2::coord_fixed() +
+      theme(
+        plot.margin = margin(0, 0, 0, 0),
+        # Remove all margins
+        panel.spacing = unit(0, "lines")  # Remove any extra panel spacing
+      ) +
+      geom_half_arrow(
+        x = d_arrows_6$xi,
+        y = d_arrows_6$yi ,
+        xend = d_arrows_6$xj,
+        yend = d_arrows_6$yj,
+        color = "black",
+        alpha = 1,
+        linetype = 1,
+        linewidth = 0.3,
+        gap = gap * state_radius,
+        head_size = head_size * state_radius,
+        shift = state_radius * shift,
+        head_angle = pi / 2 / 3
+      ) +theme_nature()+
+    
+      theme(
+        legend.position = "none",
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        plot.background = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size=6),
+       plot.margin = margin(0, 0, 0, 0)
+      )
+  )
+}
+
+
+
+```
+
+
+
+
+a function for conformational schemes
+
+```{r}
+geom_conformational_scheme <- function(label_conf_inter,color_scale,symbol_label_size= 5, label_conf_inter_3=c()) {
+  state_radius = 0.25
+  label_color = 1
+  gap = 1
+  shift = 0.25
+  head_size = 0.5
+  sizes = 2
+  
+  n_conf_changes = 3
+  
+  i_state = 1:(2 * n_conf_changes)
+  
+  i_change <- 1:n_conf_changes
+  
+  
+  d = 4
+  conf_radius = 4
+  
+  pos_x_changes <- c(-0.5, 0, 0.5) * d
+  pos_y_changes <- c(0, -0.75, 0) * d
+  
+  #pos_x_changes<-c(0,0,sqrt(0.75))*d
+  #pos_y_changes<-c(0.45,-0.45,0)*d
+  
+  d_changes <- data.frame(i_change, x = pos_x_changes, y = pos_y_changes)
+  delta_y_state = 0.03 * d * conf_radius
+  
+  delta_x_Conf_change = 0.025 * d * conf_radius
+  
+  delta_y_Conf_change = 1.5 * delta_y_state
+  
+  delta_flap_Conf_change = 0.2 * delta_x_Conf_change
+  
+  x_left_br <- c(1, 0, 0, 1) * delta_flap_Conf_change+-1 * delta_x_Conf_change
+  
+  y_left_br <- c(1, 1, -1, -1) * delta_y_Conf_change
+  
+  x_br <- rep(c(x_left_br, -x_left_br), n_conf_changes) + rep(pos_x_changes, each =
+                                                                4)
+  y_br <- rep(c(y_left_br, -y_left_br), n_conf_changes) + rep(pos_y_changes, each =
+                                                               4)
+  
+  i_br <- rep(i_state, each = 4)
+  
+  d_br <- data.frame(x = x_br, y = y_br, i_g = i_br)
+  
+  
+  x_left_br <- c(1, 0, 0, 1) * delta_flap_Conf_change * 3 + 0 * delta_x_Conf_change
+  
+  y_left_br <- c(1, 1, -1, -1) * (delta_y_Conf_change * 1.25 + d * 0.45)
+  
+  x_br <- c(x_left_br + pos_x_changes[1], -x_left_br + pos_x_changes[3])
+  y_br <- c(y_left_br, y_left_br) +  pos_y_changes[1] * 0.5 + pos_y_changes[2] *
+    0.5
+  i_br <- rep(c(1, 2), each = 4)
+  
+  d_giant_br <- data.frame(x = x_br, y = y_br, i_g = i_br)
+  
+  x_brack_subindex <- c(x_br[6] + delta_flap_Conf_change * 2*0.6)
+  y_brack_subindex <- c(y_br[7] - delta_flap_Conf_change * 2*0.6)
+  
+  label_brack_subindex <- c("3")
+  
+  d_brack_sub <- data.frame(x = x_brack_subindex, y = y_brack_subindex, label = label_brack_subindex)
+  
+  
+  
+  x <- rep(pos_x_changes, each = 2)
+  y <- rep(pos_y_changes, each = 2) + rep(c(1, -1), n_conf_changes) * delta_y_state
+  
+  
+  state_symbol <- c("R", "F", "R", "RA", "R", "F")
+  
+  
+  
+  d_states_symbol_6 <- data.frame(i_state, x, y, state_symbol)
+  #                        5       9      13      17      21
+  i_state_from = c(1, 2, 3, 4, 5, 6)
+  i_state_to =   c(2, 1, 4, 3, 6, 5)
+  
+  
+  
+  i_conf_inter <- c(1, 2)
+  j_conf_inter <- c(2, 3)
+  
+  
+  d_conf = data.frame(i_conf_inter, j_conf_inter)
+  
+  d_conf <- left_join(d_conf, d_changes, by = join_by(i_conf_inter == i_change)) %>%
+    left_join(d_changes,
+              by = join_by(j_conf_inter == i_change),
+              suffix = c("i", "j"))
+  
+  d_conf$label = label_conf_inter
+  
+  
+  d_conf$x = (d_conf$xi + d_conf$xj) * 0.5
+  d_conf$y = (d_conf$yi + d_conf$yj) * 0.5
+  
+  dx = d_conf$xi - d_conf$xj
+  dy = d_conf$yi - d_conf$yj
+  angle <- atan(-dy / -dx) * 180 / pi
+  
+  angle <- ifelse (angle < -89, 90, angle)
+  d_conf$angle <- angle
+  
+  
+  
+  d_conf_3<-data.frame()
+  
+  d_conf_3<-data.frame(x = numeric(0), y = numeric(0), label = character(0))
+  
+  d_lab_conf_3<-data.frame(x = numeric(0), y = numeric(0), label = character(0), angle=numeric(0))
+  
+  if (length(label_conf_inter_3)>0){
+  i_conf_inter <- c(1)
+  j_conf_inter <- c(2)
+  k_conf_inter <- c(3)
+  d_conf_3 = data.frame(i_conf_inter, j_conf_inter, k_conf_inter)
+  
+  
+  
+  
+  d_conf_3 <- left_join(d_conf_3, d_changes, by = join_by(i_conf_inter == i_change)) %>%
+    left_join(d_changes,
+              by = join_by(j_conf_inter == i_change),
+              suffix = c("i", "j")) %>%
+    left_join(d_changes, by = join_by(k_conf_inter == i_change))
+  d_conf_3$xk = d_conf_3$x
+  d_conf_3$yk = d_conf_3$y
+  
+  d_conf_3$label = label_conf_inter_3
+  
+  
+  d_conf_3$x = (d_conf_3$xi + d_conf_3$xj + d_conf_3$x) / 3
+  d_conf_3$y = (d_conf_3$yi + d_conf_3$yj + d_conf_3$yk) / 3
+  
+  calc_angle <- function(dx, dy) {
+    angle <- atan(-dy / -dx) * 180 / pi
+    angle <- ifelse(angle < -89, 90, angle)
+    return (angle)
+  }
+  
+  lab_3_radius = 0.33
+  x_pos_lab_3 <- c(
+    d_conf_3$x + lab_3_radius * (d_conf_3$xi - d_conf_3$x) ,
+    d_conf_3$x + lab_3_radius * (d_conf_3$xj - d_conf_3$x) ,
+    d_conf_3$x + lab_3_radius * (d_conf_3$xk - d_conf_3$x)
+  )
+  
+  y_pos_lab_3 <- c(
+    d_conf_3$y + lab_3_radius * (d_conf_3$yi - d_conf_3$y) ,
+    d_conf_3$y + lab_3_radius * (d_conf_3$yj - d_conf_3$y) ,
+    d_conf_3$y + lab_3_radius * (d_conf_3$yk - d_conf_3$y)
+  )
+  
+  angle_lab_3 <- c(calc_angle((d_conf_3$xi - d_conf_3$x), (d_conf_3$yi - d_conf_3$y)) , calc_angle((d_conf_3$xj -
+                                                                                                      d_conf_3$x), (d_conf_3$yj - d_conf_3$y)) , calc_angle((d_conf_3$xk - d_conf_3$x), (d_conf_3$yk -
+                                                                                                                                                                                           d_conf_3$y)))
+  
+  lab_3 <- c("<<", "<<", ">>")
+  
+  d_lab_conf_3 = data.frame(
+    x = x_pos_lab_3,
+    y = y_pos_lab_3,
+    label = lab_3,
+    angle = angle_lab_3
+  )
+  
+  }
+  
+  dx = d_conf$xi - d_conf$xj
+  dy = d_conf$yi - d_conf$yj
+  angle <- atan(-dy / -dx) * 180 / pi
+  
+  angle <- ifelse (angle < -89, 90, angle)
+  
+  
+  
+  d_arrows_6 = data.frame(i_state_from, i_state_to)
+  
+  d_arrows_6 <- left_join(
+    d_arrows_6,
+    d_states_symbol_6 %>% select(-state_symbol),
+    by = join_by(i_state_from == i_state)
+  ) %>%
+    left_join(
+      d_states_symbol_6 %>% select(-state_symbol),
+      by = join_by(i_state_to == i_state),
+      suffix = c("i", "j")
+    )
+  
+  
+  return (
+    ggplot(d_states_symbol_6, aes(x = x, y = y)) +
+      geom_path(
+        data = d_giant_br,
+        aes(x = x, y = y, group = i_g),
+        linetype = "dotted", 
+        linewidth = 0.5
+      ) +
+      geom_polygon(data = d_br, aes(
+        x = x, y = y
+      ), fill="white", linetype="blank") +
+     geom_text(
+        aes(label = state_symbol),
+        size.unit="pt",
+        parse = FALSE,
+        size = symbol_label_size
+      ) +
+      geom_path(data = d_br, aes(
+        x = x, y = y, group = i_g
+      )) +
+        geom_text(
+        data = d_brack_sub,
+        aes(x = x, y = y, label = label),
+        size.unit="pt",
+        vjust = "bottom",
+        hjust = "left",
+        size = symbol_label_size
+      ) +
+      geom_blank(data = d_brack_sub, aes(x = x, y = y)) +
+      
+      geom_text(
+        data = d_conf,
+        aes(
+          x = x,
+          y = y,
+          label = label,
+          angle = angle 
+        ),
+        size.unit="pt",
+        size = symbol_label_size
+      ) +
+      geom_text(
+        data = d_conf_3,
+        aes(x = x, y = y, label = label
+            ),
+        size.unit="pt",
+        vjust = "top",
+        size = symbol_label_size
+      ) +
+      geom_text(
+        data = d_lab_conf_3,
+        aes(
+          x = x,
+          y = y,
+          label = label,
+          angle = angle
+        ),
+        size.unit="pt",
+        size =symbol_label_size
+      ) +
+      scale_color_manual(values=color_scale)+theme_nature()+
+    
+      
+      #ggplot2::coord_fixed() +  
+      theme(
+        plot.margin = margin(0, 0, 0, 0),
+        # Remove all margins
+        panel.spacing = unit(0, "lines")  # Remove any extra panel spacing
+      ) +
+      geom_half_arrow(
+        x = d_arrows_6$xi,
+        y = d_arrows_6$yi ,
+        xend = d_arrows_6$xj,
+        yend = d_arrows_6$yj,
+        color = "black",
+        alpha = 1,
+        linetype = 1,
+        linewidth = 0.3,
+        gap = gap * state_radius,
+        head_size = head_size * state_radius,
+        shift = state_radius * shift,
+        head_angle = pi / 2 / 3
+      ) +theme_nature()+
+    
+      theme(
+        legend.position = "none",         
+        axis.title = element_blank(),         
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        plot.background = element_blank(),
+        panel.background = element_blank(),
+         plot.title = element_text(size=6),
+       plot.margin = margin(0, 0, 0, 0)
+      )
+  )
+  
+}
+```
+
+
+scheme 11 was not included in the manuscript
+
+```{r}
+
+interaction_color_scale=c("<<RB>>"="#cc79a7","<<BR>>"="#0072b2" , "RBR"="#56b4e9" )
+geom_scheme_11<-function(symbol_label_size= 6){
+  label_conf_inter <- c("<<RB>>", "<<BR>>")
+  
+  label_conf_inter_3 <- c("RBR")
+  
+  return (geom_conformational_scheme(label_conf_inter = label_conf_inter,
+                                     color_scale = interaction_color_scale,
+                                    symbol_label_size = symbol_label_size,
+                                    label_conf_inter_3 = label_conf_inter_3)
+  )
+  
+}
+
+geom_scheme_10<-function(symbol_label_size= 6){
+  label_conf_inter <- c("<<RB>>", "<<BR>>")
+  
+  label_conf_inter_3 <- c()
+  
+  return (geom_conformational_scheme(label_conf_inter = label_conf_inter,
+                                     color_scale = interaction_color_scale,
+                                    symbol_label_size = symbol_label_size,
+                                    label_conf_inter_3 = label_conf_inter_3)
+  )
+  
+}
+
+geom_scheme_9<-function(symbol_label_size= 6){
+  label_conf_inter <- c("<<RB>>", "<<RB>>")
+  
+  label_conf_inter_3 <- c()
+  
+  return (geom_conformational_scheme(label_conf_inter = label_conf_inter,
+                                     color_scale = interaction_color_scale,
+                                    symbol_label_size = symbol_label_size,
+                                    label_conf_inter_3 = label_conf_inter_3)
+  )
+  
+  
+}
+
+
+
+```
+
+
+
+```{r, fig.width=25/24.5, fig.height=35/24.5}
+geom_scheme_6(symbol_label_size = 6)+ggtitle("scheme VII")+theme(plot.title = element_text(size=6))
+```
+
+```{r, fig.width=25/24.5, fig.height=35/24.5}
+geom_scheme_7(symbol_label_size = 6)+ggtitle("scheme VII")+theme(plot.title = element_text(size=6))
+```
+
+
+```{r, fig.width=30/24.5, fig.height=30/24.5}
+geom_scheme_11(symbol_label_size = 6)+ggtitle("scheme 6")+theme(plot.title = element_text(size=6))
+```
+```{r, fig.width=30/24.5, fig.height=30/24.5}
+geom_scheme_10(symbol_label_size = 6)+ggtitle("scheme 6")+theme(plot.title = element_text(size=6))
+```
+
+
+
+
+```{r, fig.width=30/24.5, fig.height=30/24.5}
+geom_scheme_9(symbol_label_size = 6)+ggtitle("scheme 6")+theme(plot.title = element_text(size=6))
+```
+
+
+```{r, fig.width=50/24.5, fig.height=35/24.5}
+
+(geom_scheme_6(symbol_label_size = 6)+ggtitle("Scheme VI") |geom_scheme_7(symbol_label_size = 6)+ggtitle("Scheme VII"))
+```
+
+
+We finished defining the scheme drawings. 
+
+Now we load the files. 
+
+
+
+
+
+
+
+```{r}
+filename="r_analysis/data/mcmc_analisis.csv"
+d=read.csv(filename)
+```
+
+```{r}
+df<-d%>%select(iter_cat,mean,sd,ess_bulk,ess_tail,scheme,algorithm)%>%mutate(ess=pmin(ess_bulk,ess_tail))%>%select(-ess_bulk,-ess_tail)%>%
+    pivot_wider(names_from = iter_cat, values_from = c(mean,sd,ess))%>%
+  mutate(mean=ifelse(ess_6>ess_8, mean_6,mean_8),sd=ifelse(ess_6>ess_8, sd_6/ess_6^0.5,sd_8/ess_8^0.5),ess=ifelse(ess_6>ess_8, ess_6,ess_8),.keep = "unused")
+```
+
+
+A function that produces the Evidence plot for the recursive algorithm 
+(DR is because of double recursive, because it considers two points (start and end))
+Note: as we removed scheme_7 and scheme_11 from the analysis, there is a shift in the scheme numbering
+
+```{r}
+Fig_Ev_DR<-function(){
+
+
+df%>%filter(algorithm=="DR",
+                    scheme%in% c("scheme_4_inactd","scheme_9_inact","scheme_10_inactd","scheme_6_inactd",
+         # "scheme_7_inactd",
+          "scheme_7_inacts"))->d_e
+
+d_e<-d_e%>%
+  mutate(
+    scheme_label = recode(scheme,
+                          "scheme_10_inactd" = "IX",
+                          "scheme_4_inact" = "IVt",
+                          "scheme_4_inactd" = "IV",
+                          "scheme_9_inact" = "VIII",
+                          #"scheme_11_inactd" = "XI",
+                          "scheme_6_inactd" = "VI",
+                          "scheme_7_inacts" = "VII",
+                          "scheme_7_inactd" = "VIId")
+  )
+
+
+d_e%>%arrange(mean)->d_e
+
+d_e$order=1:nrow(d_e)
+# Define buffer to add space on the y-axis
+buffer <- 0.1 * diff(range(d_e$mean))
+x_min <- min(d_e$mean-d_e$sd) - buffer
+x_max <- max(d_e$mean + d_e$sd) + buffer
+
+# Plot using geom_rect with custom y-axis limits
+pos_lab_x=(d_e%>%filter(scheme=="scheme_10_inactd"))$mean[1]
+pos_lab_y=13
+
+loge_substantial=log(10^0.5)
+loge_strong=log(10)
+loge_verystrong=log(100^0.5)
+loge_decisive= log(100)
+
+
+
+d_e%>%ggplot() +
+  geom_rect(aes(
+    ymin = order - 0.4,  # Adjust bar width
+    ymax = order + 0.4,
+    xmin = mean - sd,  # Set bar base to y_min
+    xmax = x_max, 
+    fill = "error"
+  )) +
+  geom_rect(aes(
+    ymin = order - 0.4,  # Adjust bar width
+    ymax = order + 0.4,
+    xmin = mean + sd,  # Set bar base to y_min
+    xmax = x_max, 
+    fill =scheme
+  )) +
+  scale_fill_manual(values = c(
+    "error" = "grey",
+    "scheme_10_inact" = "#0072b2",  # Dark blue
+    "scheme_10_inactd" = "#0072b2",  # Dark blue
+    "scheme_4_inactd" = "#d55e00",   # Medium green
+    "scheme_4_inact" = "#d55e00",   # Medium green
+    "scheme_9_inactd" = "#cc79a7",   # Orange
+    "scheme_9_inact" = "#cc79a7",   # Orange
+   # "scheme_11_inactd" = "#56b4e9",  # Purple
+    "scheme_6_inactd" = "#f0e442",   # Red
+    "scheme_7_inact" = "#e69f00",    # Yellow
+    "scheme_7_inactd" = "#e69f00",    # Yellow
+    "scheme_7_inacts" = "#e69f00"    # Yellow
+  ))+
+  scale_y_continuous(breaks = 1:length(d_e$scheme), labels = d_e$scheme_label) +
+  scale_x_continuous(limits = c(x_min, x_max)) +
+  labs(x ="ln(Evidence)", y = "Scheme") +
+  theme_nature() + # base font size for a Nature-style look
+  theme(
+    axis.title = element_text(size = 7),       # Axis titles
+    axis.text = element_text(size = 6),        # Axis labels
+    legend.text = element_text(size = 6),      # Legend text
+    legend.title = element_blank(),             # Nature prefers no legend title
+    plot.title = element_text(size = 7),        # Optional plot title, if needed
+    legend.position = "none"  
+    )#+ggtitle("Recursive algorithm")
+}
+Fig_Ev_DR()
+```
+
+
+this function produces the evidence plot for the non recursive algorithm 
+
+```{r}
+
+Fig_Ev_SNR<-function(){
+
+df%>%filter(algorithm=="DNR",
+                    scheme%in%c("scheme_4_inact","scheme_6_inact","scheme_7_inacts","scheme_9_inact","scheme_10_inact"))->d_e
+
+d_e<-d_e%>%
+  mutate(
+    scheme_label = recode(scheme,
+                          "scheme_10_inact" = "IX",
+                          "scheme_4_inact" = "IV",
+                          "scheme_9_inact" = "VIII",
+                          #"scheme_11_inact" = "XI",
+                          "scheme_6_inact" = "VI",
+                          "scheme_7_inacts" = "VII")
+  )
+
+d_e%>%arrange(mean)->d_e
+d_e$order=1:nrow(d_e)
+# Define buffer to add space on the y-axis
+buffer <- 0.1 * diff(range(d_e$mean))
+x_min <- min(d_e$mean - d_e$sd ) - buffer
+x_max <- max(d_e$mean + d_e$sd) + buffer
+
+# Plot using geom_rect with custom y-axis limits
+pos_lab_x=(d_e%>%filter(scheme=="scheme_10"))$mean[1]
+pos_lab_y=13
+
+loge_substantial=log(10^0.5)
+loge_strong=log(10)
+loge_verystrong=log(100^0.5)
+loge_decisive= log(100)
+
+
+
+d_e%>%ggplot() +
+  geom_rect(aes(
+    ymin = order - 0.4,  # Adjust bar width
+    ymax = order + 0.4,
+    xmin = mean-sd,  # Set bar base to y_min
+    xmax = x_max, 
+    fill = "error"
+  ), fill = "grey") +
+  geom_rect(aes(
+    ymin = order - 0.4,  # Adjust bar width
+    ymax = order + 0.4,
+    xmin = mean+sd,  # Set bar base to y_min
+    xmax = x_max, 
+    fill =scheme
+  )) +
+  scale_fill_manual(values = c(
+    "error" = "grey",
+    "scheme_10_inact" = "#0072b2",  # Dark blue
+    "scheme_10_inactd" = "#0072b2",  # Dark blue
+    "scheme_4_inactd" = "#d55e00",   # Medium green
+    "scheme_4_inact" = "#d55e00",   # Medium green
+    "scheme_9_inactd" = "#cc79a7",   # Orange
+    "scheme_9_inact" = "#cc79a7",   # Orange
+    "scheme_11_inactd" = "#56b4e9",  # Purple
+    "scheme_11_inact" = "#56b4e9",  # Purple
+    "scheme_6_inactd" = "#f0e442",   # Red
+    "scheme_6_inact" = "#f0e442",   # Red
+    "scheme_7_inact" = "#e69f00",    # Yellow
+    "scheme_7_inactd" = "#e69f00",    # Yellow
+    "scheme_7_inacts" = "#e69f00"    # Yellow
+  ))+
+  scale_y_continuous(breaks = 1:length(d_e$scheme), labels = paste0(d_e$scheme_label)) +
+  scale_x_continuous(limits = c(x_min, x_max)) +
+  labs(x = "ln(Evidence)", y = "Scheme") +
+  theme_nature() + # base font size for a Nature-style look
+  theme(
+    axis.title = element_text(size = 7),       # Axis titles
+    axis.text = element_text(size = 6),        # Axis labels
+    legend.text = element_text(size = 6),      # Legend text
+    legend.title = element_blank(),             # Nature prefers no legend title
+    legend.position = "none",
+    plot.title = element_text(size = 7)        # Optional plot title, if needed
+  )#+ggtitle("Non-Recursive algorithm")
+}
+```
+
+
+
+
+
+
+```{r Figure 1, fig.width=180/24.5, fig.height=120/24.5}
+# Load necessary libraries
+library(ggplot2)
+library(cowplot)
+
+
+# Example of creating panel plots (assuming they are defined earlier)
+#
+
+panel_A <- (geom_scheme_9() +theme_nature_no_axis+ ggtitle("a",subtitle = "Scheme VIII"))+theme(plot.title = element_text(size=7, hjust = -0.02), plot.subtitle = element_text(size=6)) + 
+  (geom_scheme_10() +theme_nature_no_axis+ ggtitle("",subtitle ="Scheme IX")) + theme(plot.title = element_text(size=7, hjust = -0.1, vjust=-0.1), plot.subtitle = element_text(size=6))+ 
+#  (geom_scheme_11()+theme_nature_no_axis + ggtitle("",subtitle ="Scheme XI"))+ theme(plot.title = element_text(size=7, hjust = -0.1, vjust=-0.1), plot.subtitle = element_text(size=6)) + 
+  plot_layout(ncol = 1)
+
+panel_B <- plot_grid(geom_scheme_4(symbol_label_size = 6) +theme_nature_no_axis+ 
+                       ggtitle("b",subtitle = "Scheme IV")+theme(plot.title = element_text(size=7, hjust = -0.02, vjust=-0.5), plot.subtitle = element_text(size=6)), 
+  (geom_scheme_6(symbol_label_size = 6) +theme_nature_no_axis+ 
+     ggtitle("c",subtitle = "Scheme VI")+theme(plot.title = element_text(size=7, hjust = -0.02), plot.subtitle = element_text(size=6)))+
+  (geom_scheme_7(symbol_label_size = 6) +theme_nature_no_axis+ 
+     ggtitle("",subtitle = "Scheme VII")+theme(plot.title = element_text(size=7, hjust = -0.02), plot.subtitle = element_text(size=6))), nrow=1)
+
+panel_C <- Fig_Ev_DR() + 
+  ggtitle("d", subtitle="Recursive")+ theme(plot.title = element_text(size=7, hjust = -0.1, vjust=-0.1), plot.subtitle = element_text(size=6))+ 
+  Fig_Ev_SNR() +  
+  ggtitle("e", subtitle="Non-Recursive")+ theme(plot.title = element_text(size=7, hjust = -0.1, vjust=-0.1), plot.subtitle = element_text(size=6)) + 
+  plot_layout(ncol = 2)
+
+panel_B_C<-plot_grid(panel_B,panel_C , nrow=2, rel_heights = c(0.7,1))
+
+# Combine the panels using cowplot's plot_grid() function
+combined_plot <- plot_grid(panel_A, panel_B_C, 
+                           ncol = 2,                    # Arrange plots side-by-side in 3 columns
+                           rel_widths = c(0.4,1))      # Control relative width of each column
+
+# Show the combined plot
+combined_plot
+ggsave("./r_analysis/results/Figure_1.pdf",
+       combined_plot,
+       device = cairo_pdf,
+       family = "Arial",
+       width = 180, height = 120, units = "mm", dpi = 300)
+```
+
+
+```{r}
+sessionInfo()
+```
+
+

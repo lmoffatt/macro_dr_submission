@@ -1,0 +1,484 @@
+---
+title: "Paper figure 2"
+author: "Luciano Moffatt"
+date: "2025-01-21"
+output: html_document
+---
+
+Here we analyze the samples of scheme_10
+
+
+
+1) Analysis of the posteriors of the parameters. 
+
+
+First load the parameters
+```{r}
+library(readr)
+library(tidyverse)
+library(envalysis)
+library(patchwork)
+library(HDInterval)
+library(xtable)
+library(cowplot)
+f=c(
+  "../r_analysis/data/w9_IE_DR_32c_32s_4b_scheme_10_inact_PI_logbaseline_0_0_scheme_10_inact_c04c49f_192436s748577_10921472283437478284"
+)
+
+schemes=c("scheme_10")
+algorithms=c("DR")
+
+datas=c("full_experiment")
+repetitions=c(1)
+
+```
+
+
+```{r}
+format_significant <- function(x, digits=3) {
+  paste0(format(x, digits = digits, scientific = abs(x) >= 1e3 | abs(x) < 1e-2))
+}
+
+
+```
+
+
+
+
+```{r}
+
+d_par=data.frame()
+
+for (i in seq_len(length(f))){
+j=10
+file<- f[i]
+if(file.exists(paste0(file,ifelse(j>0,paste0("_",j),""),"__i_beta__i_walker__i_par.csv"))){
+tmp <- try(d_par0<-read.csv(paste0(file,ifelse(j>0,paste0("_",j),""),"__i_beta__i_walker__i_par.csv")))
+  if (!inherits(tmp, 'try-error')){
+  print(paste0(f[i]," run",j))
+  
+  d_par0$run=j
+ j=j+1
+ 
+while(file.exists(paste0(file,"_",j,"__i_beta__i_walker__i_par.csv"))){
+  tmp <- try(d2<-read.csv(paste0(file,"_",j,"__i_beta__i_walker__i_par.csv")))
+  
+  if (!inherits(tmp, 'try-error')){
+  d2$run=j
+  d_par0<-bind_rows(d_par0,d2)
+  print(paste0(" run",j))
+  }
+  else
+  {
+  print(paste0(file,"->error run",j))
+    
+  }
+   j=j+1
+ 
+}
+d_par0$scheme=schemes[i]
+d_par0$algorithm=algorithms[i]
+d_par0$rep=repetitions[i]
+d_par0$data=datas[i]
+max_iter=max(d_par0$iter, na.rm = T)
+
+d_par0$iter_cat=floor(d_par0$iter/(max_iter+1)*9)
+
+
+d_par<- bind_rows(d_par,d_par0)
+
+}
+else
+{
+  j=j+1
+  print("failed->",paste0(f[i]," run",j))
+  
+}
+}
+  
+}
+
+
+```
+
+
+```{r}
+d_prior=data.frame()
+
+for (i in seq_len(length(f))){
+d_p <-read.csv(paste0(f[i],"_prior.csv"))
+d_p$scheme=schemes[i]
+d_p$algorithm=algorithms[i]
+d_prior<-bind_rows(d_p,d_prior)
+}
+
+```
+
+```{r}
+d_prior%>%group_by(scheme, algorithm)%>%summarise(num_param=n())->scheme_par_count
+scheme_par_count
+```
+
+
+
+```{r}
+d_prior%>%filter(parameter_transformation!="Fixed", algorithm=="DR")->parlist
+parlist$parameter_name
+
+parameter_to_index=seq_len(length(parlist$parameter_name))
+names(parameter_to_index)<-parlist$parameter_name
+
+```
+
+
+
+```{r}
+
+
+pars=unique(d_par$i_par)
+for (i_p in pars)
+   print(d_par%>%filter(beta==1,i_par==i_p)%>%ggplot()+geom_point(aes(x=iter,y=par_value, color=as.factor(i_walker)))+geom_hline(aes(yintercept = parlist$transformed_mean[i_p+1]))+ggtitle(paste0(parlist$parameter_name[i_p+1]))+ facet_wrap(scheme~algorithm, scales = "free_x"))
+
+
+```
+```{r}
+d_par$parameter=parlist$parameter_name[d_par$i_p+1]
+d_par$parameter_expected=parlist$transformed_mean[d_par$i_p+1]
+d_par<-d_par%>% mutate(parameters=factor(parameter,levels=parlist$parameter_name))
+```
+
+
+```{r, fig.width=10, fig.height=8}
+min_iter=min(filter(d_par,scheme=="scheme_10")$iter,na.rm = T )
+d_par%>%group_by(rep)%>%summarise(max_iter=max(iter)-min_iter)->max_iters
+
+```
+
+
+```{r}
+assoc_rates=c('Binding_on')
+
+kinetic_rates=c('Binding_off','Rocking_on','Rocking_off')
+
+allos_Eq=c('RB','BR')
+
+allos_kon=c('RB_1','BR_0')
+allos_ron=c('RB_0','BR_1')
+
+curr_par=c('Rocking_Current_factor'="",'Leakeage_current_ratio'="",'Gating_Current'="",'Current_Baseline'="")
+noise_par=c('Current_Noise','Pink_Noise')
+num_par=c('Num_ch')
+inact_par=c('inactivation_rate')
+
+
+```
+
+
+
+```{r}
+param_labels=c('Binding_on'="b[on]",'Binding_off'='b[off]','Rocking_on'='r[on]','Rocking_off'='r[off]','RB'="RB",'BR'="BR",'RB_0'="RB[r[on]]",'RB_1'="RB[b[on]]",'BR_0'="BR[b[on]]",'BR_1'="BR[r[on]]",'Rocking_Current_factor'="R[gamma]",'Leakeage_current_ratio'="rho[leak]",'Gating_Current'="gamma",'Current_Baseline'="i[0]",'Current_Noise'="epsilon^2",'Pink_Noise'="nu^2",'Num_ch'="N[ch] ",'inactivation_rate'="k[inact]", "DR"="R", "SNR"="NR")
+
+
+```
+
+```{r}
+prior_posterior_algorithm_color_scale=c("prior_DR"="#A9DFBF","prior_SNR"="#56B4E9", "posterior_SNR"="#1F77B4","posterior_DR"="#2CA02C")
+
+
+
+prior_posterior_color_scale=c("prior"="#D3D3D3", "posterior"="#2C3E50")
+
+```
+
+
+```{r}
+
+fig_parameters_algorithm<-function(data,param_list, bw, labels=c(), color_scale=prior_posterior_algorithm_color_scale){
+  
+  
+  ggplot() +
+  geom_freqpoly(data = filter(data,beta==0,algorithm=="DR",parameters %in% param_list), aes(10^par_value, after_stat(ndensity), color = "prior_DR")) +
+  geom_freqpoly(data = filter(data,beta==0,algorithm=="SNR",parameters %in% param_list), aes(10^par_value, after_stat(ndensity), color = "prior_SNR")) +
+  geom_freqpoly(data = filter(data,beta==1,algorithm=="DR",parameters %in% param_list), binwidth = bw, aes(10^par_value, after_stat(ndensity), color = "posterior_DR")) +
+  geom_freqpoly(data = filter(data,beta==1,algorithm=="SNR",parameters %in% param_list), binwidth = bw, aes(10^par_value, after_stat(ndensity), color = "posterior_SNR")) +
+  facet_grid(parameters ~ ., scales = "free", switch = "y", labeller= as_labeller(labels, default = label_parsed)) +
+  theme_classic()+
+  theme(
+    #panel.spacing.x = unit(1, "mm"),
+    strip.placement = "outside", # Moves strip to the right
+    strip.text.y.left =  element_text(angle = 0, hjust = 1,size = 7) ,# Ensures horizontal orientation
+     strip.background = element_blank(),
+    axis.text.y = element_blank(), # Removes y-axis text
+    axis.title.y = element_blank(), # Removes y-axis title
+    axis.ticks.y = element_blank(), 
+    axis.line.y = element_blank(), 
+    legend.position = "none",
+    axis.title.x = element_text(size = 7),       # Axis titles
+    axis.text.x = element_text(size = 6),        # Axis labels
+    plot.title = element_text(size = 7),        # Optional plot title, if needed
+) +
+ scale_color_manual(values = color_scale)+
+     ylab("parameter value") +
+  scale_x_log10(labels = scales::label_log())
+}
+```
+
+
+
+```{r}
+
+fig_parameters_algorithm_facet<-function(data,param_list, bw, labels=c(), color_scale=prior_posterior_color_scale){
+  
+  
+  ggplot() +
+  geom_freqpoly(data = filter(data,beta==0,parameters %in% param_list), aes(par_value, after_stat(ndensity), color = "prior")) +
+  geom_freqpoly(data = filter(data,beta==1,parameters %in% param_list), binwidth = bw, aes(par_value, after_stat(ndensity), color = "posterior")) +
+  facet_grid(parameters +algorithm ~., scales = "free", switch = "y", labeller= as_labeller(labels, default = label_parsed)) +
+  theme_classic()+
+  theme(
+    #panel.spacing.x = unit(1, "mm"),
+    strip.placement = "outside", # Moves strip to the right
+    strip.text.y.left =  element_text(angle = 0, hjust = 1,size = 6) ,# Ensures horizontal orientation
+     strip.background = element_blank(),
+    axis.text.y = element_blank(), # Removes y-axis text
+    axis.title.y = element_blank(), # Removes y-axis title
+    axis.ticks.y = element_blank(), 
+    axis.line.y = element_blank(), 
+    legend.position = "none",
+    axis.title.x = element_text(size = 7),       # Axis titles
+    axis.text.x = element_text(size = 6),        # Axis labels
+    plot.title = element_text(size = 7),        # Optional plot title, if needed
+) +
+ scale_color_manual(values = color_scale)+
+     ylab("parameter value") 
+}
+```
+
+
+
+```{r}
+
+fig_parameters<-function(data,param_list, bw, labels=c(), color_scale=prior_posterior_color_scale){
+  
+  
+  ggplot() +
+  geom_freqpoly(data = filter(data,beta==0,parameters %in% param_list), aes(par_value, after_stat(ndensity), color = "prior")) +
+  geom_freqpoly(data = filter(data,beta==1,parameters %in% param_list), binwidth = bw, aes(par_value, after_stat(ndensity), color = "posterior")) +
+  facet_grid(parameters ~ ., scales = "free", switch = "y", labeller= as_labeller(labels, default = label_parsed)) +
+  theme_classic()+
+  theme(
+    #panel.spacing.x = unit(1, "mm"),
+    strip.placement = "outside", # Moves strip to the right
+    strip.text.y.left =  element_text(angle = 0, hjust = 1,size = 7) ,# Ensures horizontal orientation
+     strip.background = element_blank(),
+    axis.text.y = element_blank(), # Removes y-axis text
+    axis.title.y = element_blank(), # Removes y-axis title
+    axis.ticks.y = element_blank(), 
+    axis.line.y = element_blank(), 
+    legend.position = "none",
+    axis.title.x = element_text(size = 7),       # Axis titles
+    axis.text.x = element_text(size = 6),        # Axis labels
+    plot.title = element_text(size = 7),        # Optional plot title, if needed
+) +
+ scale_color_manual(values = color_scale)+
+     ylab("parameter value") 
+  }
+```
+
+
+
+
+
+
+```{r, fig.width=89/25.4, fig.height=180/25.4}
+layout_1col="
+   A
+   B
+   B
+   B
+   C
+   C
+   D
+   D
+   E
+   E
+   F
+   G
+   H
+   I
+   J
+   K
+   L
+   M"
+layout_2col="
+   BA
+   BC
+   BC
+   DE
+   DE
+   FG
+   HI
+   JK
+   LM
+"
+
+layout_4col="
+   BAFG
+   BCHI
+   BCJK
+   DELM
+   DE
+"
+
+
+fig_parameters(d_par, assoc_rates, 0.005, param_labels) +
+  xlab(expression(log[10]("association rate (" * mu * " M " * s^{-1} * ")")))+
+fig_parameters(d_par,kinetic_rates, 0.005, param_labels)+xlab(expression(log[10]("kinetic rate (" *s^-1 * ")"))) +
+fig_parameters(d_par,allos_Eq, 0.05,param_labels)+xlab(expression(log[10]("Equilibrium allosteric coupling ")))+
+fig_parameters(d_par,allos_kon, 0.05, param_labels)+xlab(expression(log[10]("kon allosteric coupling ")))+
+fig_parameters(d_par,allos_ron, 0.05, param_labels)+xlab(expression(log[10]("ron allosteric coupling ")))+
+fig_parameters(d_par,c("Rocking_Current_factor"), 0.05,param_labels)+xlab(expression(log[10]("current allosteric coupling ")))+
+fig_parameters(d_par,c("Leakeage_current_ratio"), 0.05,param_labels)+xlab(expression(log[10]("closed channel leakeage ratio")))+
+fig_parameters(d_par,c("Gating_Current"), 0.05,param_labels)+xlab(expression(log[10]("single channel current (" *pA*  ")")))+
+fig_parameters(d_par,c("Current_Baseline"), 0.05,param_labels)+xlab(expression(log[10]("baseline current (" *pA*")")))+
+fig_parameters(d_par,c("Current_Noise"), 0.05,param_labels)+xlab(expression(log[10]("white noise (" *pA^2  %.% Hz^-1 *")")))+
+fig_parameters(d_par,c("Pink_Noise"), 0.05,param_labels)+xlab(expression(log[10]("pink noise (" *pA^2*")")))+
+fig_parameters(d_par,c("Num_ch"), 0.05,param_labels)+xlab(expression(log[10]("Number of channels")))+
+fig_parameters(d_par,c("inactivation_rate"), 0.05,param_labels)+xlab(expression(log[10]("inactivation rate (" *s^-1 * ")")))+
+  
+
+plot_layout(design =layout_2col )
+
+```
+
+
+
+
+```{r, fig.width=183/25.4, fig.height=90/25.4}
+fig_panels<-function(data,fig_parameters)
+{
+layout_21col="
+   BA
+   BD
+   BD
+   CE
+   CE
+"
+
+
+panel_A<-
+fig_parameters(data,assoc_rates, 0.005, param_labels)+xlab(expression(log[10]("association rate (" * mu * M %.% s^-1 * ")"))) +
+fig_parameters(data,kinetic_rates, 0.005, param_labels)+xlab(expression(log[10]("kinetic rate (" *s^-1 * ")"))) +
+fig_parameters(data,allos_Eq, 0.05,param_labels)+xlab(expression(log[10]("Equilibrium allosteric coupling ")))+
+fig_parameters(data,allos_kon, 0.05, param_labels)+xlab(expression(log[10](k[on]*" allosteric coupling ")))+
+fig_parameters(data,allos_ron, 0.05, param_labels)+xlab(expression(log[10](r[on]*" allosteric coupling ")))+
+plot_layout(design =layout_21col )
+
+
+layout_22col="
+   AB
+   CD
+   EF
+   GH
+"
+
+
+panel_B<-fig_parameters(data,c("Rocking_Current_factor"), 0.1,param_labels)+xlab(expression(log[10]( gamma*" allosteric coupling ")))+
+fig_parameters(data,c("Leakeage_current_ratio"), 0.2,param_labels)+xlab(expression(log[10]("closed leakeage ratio")))+  
+fig_parameters(data,c("Gating_Current"), 0.05,param_labels)+xlab(expression(log[10]("single channel current (" *pA*  ")")))+
+fig_parameters(data,c("Current_Baseline"), 0.05,param_labels)+xlab(expression(log[10]("baseline current (" *pA*")")))+
+fig_parameters(data,c("Current_Noise"), 0.05,param_labels)+xlab(expression(log[10]("white noise (" *pA^2  %.% Hz^-1 *")")))+
+fig_parameters(data,c("Pink_Noise"), 0.05,param_labels)+xlab(expression(log[10]("pink noise (" *pA^2*")")))+
+fig_parameters(data,c("Num_ch"), 0.05,param_labels)+xlab(expression(log[10]("Number of channels")))+
+fig_parameters(data,c("inactivation_rate"), 0.05,param_labels)+xlab(expression(log[10]("inactivation rate (" *s^-1 * ")")))+
+plot_layout(design =layout_22col )
+
+
+plot_grid(panel_A,panel_B , nrow=1)
+}
+```
+
+
+```{r, fig.width=183/25.4, fig.height=90/25.4}
+
+fig_panels(data = d_par%>%filter(algorithm=="DR"),fig_parameters)
+ggsave("./r_analysis/results/Figure_2.pdf",device =cairo_pdf, dpi = 300, width = 183, height = 90 ,units = "mm")
+
+
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(posterior)
+# Filter and reshape the data
+
+parameter_to_index["BR_dm"]=parameter_to_index["BR"]+0.5
+parameter_to_index["BR_0_dm"]=parameter_to_index["BR_0"]+0.5
+parameter_to_index["BR_1_dm"]=parameter_to_index["BR_1"]+0.5
+parameter_to_index["RB_dm"]=parameter_to_index["RB"]+0.5
+parameter_to_index["RB_1_dm"]=parameter_to_index["RB_1"]+0.5
+parameter_to_index["RB_0_dm"]=parameter_to_index["R_0"]+0.5
+
+mcmc_analisis_par<-data.frame()
+dm <- d_par %>%
+  filter(beta == 1| beta==0, iter_cat>5) %>%
+    select(iter,iter_cat,beta,i_walker,parameter,par_value)
+#dm<-dm%>%group_by(iter, parameter)%>%mutate(sd_par_value=sd(par_value))%>%ungroup()
+
+dw<-dm%>%pivot_wider(names_from = parameter, values_from = par_value)
+dw<-dw%>%mutate(change=RB<BR, 
+            BR_dm=ifelse(change,RB,BR),
+            BR_0_dm=ifelse(change,RB_1,BR_0),
+            BR_1_dm=ifelse(change,RB_0,BR_1),
+            RB_dm=ifelse(change,BR,RB),
+            RB_1_dm=ifelse(change,BR_0,RB_1),
+            RB_0_dm=ifelse(change,BR_1,RB_0))%>%
+  select(-change)
+
+# Compute R-hat
+sumarize_mcmc<-function(dw,beta_val,i, iter_cat_val){
+dw_<-dw%>%filter(beta==beta_val,iter_cat>=iter_cat_val)%>%select(-iter,-iter_cat,-i_walker,-beta)
+mcmc_df<- as_draws_df(tibble(dw_),.nchains=32)
+dr<-summarise_draws(mcmc_df)
+dr$beta=beta_val
+dr$scheme=schemes[i]
+dr$algorithm=algorithms[i]
+dr$max_iter=max(d_par$iter)
+dr$max_iter_time=max(d_par$iter_time)
+dr$iter_cat=iter_cat_val
+
+return(dr)
+}
+
+dr=sumarize_mcmc(dw=dw,beta_val=0,i=1,iter_cat_val=6)
+mcmc_analisis_par<-bind_rows(mcmc_analisis_par,dr)
+dr=sumarize_mcmc(dw=dw,beta_val=1,i=1,iter_cat_val=6)
+mcmc_analisis_par<-bind_rows(mcmc_analisis_par,dr)
+dr=sumarize_mcmc(dw=dw,beta_val=0,i=1,iter_cat_val=8)
+mcmc_analisis_par<-bind_rows(mcmc_analisis_par,dr)
+dr=sumarize_mcmc(dw=dw,beta_val=1,i=1,iter_cat_val=8)
+mcmc_analisis_par<-bind_rows(mcmc_analisis_par,dr)
+
+mcmc_analisis_par$i_par=parameter_to_index[mcmc_analisis_par$variable]
+mcmc_analisis_par<-mcmc_analisis_par%>%arrange(i_par,beta,iter_cat)
+mcmc_analisis_par%>%select(variable,beta,median,sd,q5,q95,rhat,iter_cat)
+
+```
+
+
+```{r}
+mcmc_analisis_par%>%select(variable,beta,median,sd,q5,q95,rhat,iter_cat)
+```
+
+
+
+```{r}
+write_csv(mcmc_analisis_par, "./r_analysis/results/mcmc_analisis_parameters.csv")
+```
+
+
+
+```{r}
+sessionInfo()
+```

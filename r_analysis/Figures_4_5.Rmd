@@ -1,0 +1,982 @@
+---
+title: "Figures 4 5"
+author: "Luciano Moffatt"
+date: "2024-10-04"
+output: html_document
+---
+
+
+```{r}
+if (!requireNamespace("ConformationalModel", quietly = TRUE)) {
+  if (!requireNamespace("devtools", quietly = TRUE)) {
+    install.packages("devtools")
+  }
+  devtools::install_github("lmoffatt/ConformationalModel")
+}
+library(ConformationalModel)
+library(patchwork)
+library (cowplot)
+library(tidyverse)
+library(envalysis)
+#library(extrafont) # For font management
+
+
+```
+
+
+```{r}
+changes <- conformationalChanges(
+conformational_changes = c("Binding", "Rocking"),
+agonists = c("ATP", "")
+)
+domains <- conformationaldomains(c(1, 2, 1, 2, 1, 2))
+interactions <- conformationalInteractions(
+labels = c("RB", "BR"),
+players_ids = list(c(2, 1), c(1, 2)),
+domains_ids = list(list(c(6, 1), c(2, 3), c(4, 5)), list(c(1, 2), c(3, 4), c(5, 6)))
+)
+conductances <- conductanceInteractions(
+labels = c("Rocking_Current_factor"),
+players_ids = list(c(2)),
+domains_ids = list(list(c(2),c(4),c(6)))
+)
+conductance_info<-conductanceInteractionInfo(id_conductance_interaction = 1,kind = "equilibrium", leakeage_label = "Leakeage_current_ratio")
+standard_states <- standardStates(id_conformational_change = c(2,2),id_interaction = c(1,2) ,pos_within_interaction = c(1,2) ,count =c(1,1) )
+
+model=ConformationalModel(changes,domains, interactions,conductances,
+standard_states,
+conductance_info)
+```
+
+
+```{r}
+get_n_states<-function(model, interaction_code){
+n_states=g_ConformationalStates_data(model,
+                                        id_states=1:24,
+                                        state_radius=0.05,
+                                        distance_to_subunit=1,
+                                        distance_to_ATP=1.5,
+                                        subunit_radius=1,
+                                        subunit_scale_x=1,
+                                        subunit_scale_y=0.75,
+                                        subunit_deformation_angle_degree = 0,
+                                        subunit_distance_to_center_rotation=0.75,
+                                        subunit_angle_center_rotation_degree=120,
+                                        subunit_rotation_degree = 45,
+                                        ATP_radius=0.8,
+                                        ATP_scale_x=0.3,
+                                        ATP_scale_y=1.2,
+                                        ATP_deformation_angle_degree = 90,
+                                        ATP_distance_to_center_rotation=0.7,
+                                        ATP_angle_center_rotation_degree =180,
+                                        ATP_rotation_degree = 0, #60 this changes angle
+                                        ATP_coupled_with_next_or_previous=1, #1 or -1
+                                        delta_z = 0.75,
+                                        delta_x =1,
+                                        delta_y = 1,
+                                        dz_x = 1,
+                                        dz_y = 1)
+n_states$bound=ifelse(n_states$n_sides==64,"bound","unbound")
+
+n_states$n_sides=64
+
+n_states<-n_states%>%mutate(interaction_label=unname(interaction_code[interaction]))
+n_states<-n_states%>%mutate(interaction_state=if_else(domain_state==2,interaction_label,"off"))
+
+return (n_states)
+}
+```
+
+
+```{r}
+interaction_code<-c(
+  "_"="No interaction",  
+  "2_1_1"= "BR" ,             
+  "2_2_1"= "BR" ,            
+  "1_2_1"= "RB" ,            
+  "1_1_1"= "RB" ,            
+  "1_2_1 2_1_1"= "RB * BR" ,        
+  "1_1_1 2_2_1"= "RB * BR" ,        
+  "off" = "off"
+)
+
+n_states<-get_n_states(model, interaction_code = interaction_code)
+
+color_scheme <- c("No interaction" = "#808080",  # Gray
+            "RB" = "#E69F00",             # Orange
+            "BR" = "#56B4E9",             # Sky Blue
+            "RB * BR" = "#8E5A99",   # Dark Purple
+            "off" = "#FFFFFF",
+            "white" = "#FFFFFF"
+            )
+```
+
+
+```{r}
+Q<-get_Qinfo(model)
+Q<-Q%>%mutate(interactions= case_match(interactions,
+  "1"~"RB",
+  "2"~"BR",
+  "1_2"~"RB * BR",
+  .default = "No interaction"
+  
+))  
+```
+
+
+```{r}
+g_ConformationalStates(n_states,color="interaction_label",linewidth=0.3,  fill="interaction_state")+scale_linetype_manual(values = c("bound" = "solid", "unbound" = "dotted"))+scale_color_manual(aesthetics = c("colour", "fill"),values=color_scheme  )+theme_nature() 
+  
+#n_states=g_ConformationalStates_data(model,1:24, delta_z = 0.5)
+```
+```{r}
+fig_4_A<-function(){
+g_ConformationalStates(n_states,color="interaction_label",linewidth=0.5,  fill="interaction_state")+scale_linetype_manual(values = c("bound" = "solid", "unbound" = "dotted"))+scale_color_manual(aesthetics = c("colour", "fill"),values=color_scheme, breaks=c("off","No interaction","RB", "BR","RB * BR")  )+theme_void() + g_Rate_arrows(model,n_states,Q, i_state_from = "i_start", i_state_to = "i_end", color="interactions",gap = 2.8,shift = 0.2,delta_z = 0.7, handle_occlusion = F, head_size = 0.8)+
+  guides(
+    fill = guide_legend(order = 1,title = "",position = "bottom",override.aes = list(
+        color = "black",    # Border color
+        linewidth = 0.5     # Border thickness
+      )),  # Show fill legend (order = 1 prioritizes it)
+    color = "none",  # Hide color legend
+    size = "none",   # Hide size legend (if applicable)
+    shape = "none", 
+    linewidth = "none"# Hide shape legend (if applicable),
+  
+  )
+}
+fig_4_A()
+```
+
+
+
+```{r, fig.width=90/25.4, fig.height=90/25.4}
+fig_4_A()+theme(text = element_text(size=7))
+ggsave("./r_analysis/results/Figure_4.pdf",device =cairo_pdf, dpi = 300, width = 120, height = 140 ,units = "mm")
+
+```
+
+
+
+
+```{r}
+n_state<-g_ConformationalState_data(model,1:24,0,0)
+```
+
+```{r}
+states<-model$domain_states%>%mutate(id_state=id_state-1)%>%filter(id_domain==1)%>%select(id_state,Binding,Rocking,id_sub_state)
+
+```
+
+
+
+
+
+
+
+
+First load the parameters
+```{r}
+f=c(
+  "../r_analysis/data/w9_IE_DR_32c_32s_4b_scheme_10_inact_PI_logbaseline_0_0_scheme_10_inact_c04c49f_192436s748577_10921472283437478284"
+)
+
+schemes=c("scheme_10")
+algorithms=c("DR")
+
+datas=c("full_experiment")
+repetitions=c(1)
+
+```
+
+
+```{r}
+format_significant <- function(x, digits=3) {
+  paste0(format(x, digits = digits, scientific = abs(x) >= 1e3 | abs(x) < 1e-2))
+}
+
+
+```
+
+
+
+
+```{r}
+
+d_par=data.frame()
+
+for (i in seq_len(length(f))){
+j=10
+file<- f[i]
+if(file.exists(paste0(file,ifelse(j>0,paste0("_",j),""),"__i_beta__i_walker__i_par.csv"))){
+tmp <- try(d_par0<-read.csv(paste0(file,ifelse(j>0,paste0("_",j),""),"__i_beta__i_walker__i_par.csv")))
+  if (!inherits(tmp, 'try-error')){
+  print(paste0(f[i]," run",j))
+  
+  d_par0$run=j
+ j=j+1
+ 
+while(file.exists(paste0(file,"_",j,"__i_beta__i_walker__i_par.csv"))){
+  tmp <- try(d2<-read.csv(paste0(file,"_",j,"__i_beta__i_walker__i_par.csv")))
+  
+  if (!inherits(tmp, 'try-error')){
+  d2$run=j
+  d_par0<-bind_rows(d_par0,d2)
+  print(paste0(" run",j))
+  }
+  else
+  {
+  print(paste0(file,"->error run",j))
+    
+  }
+   j=j+1
+ 
+}
+d_par0$scheme=schemes[i]
+d_par0$algorithm=algorithms[i]
+max_iter=max(d_par0$iter)
+d_par0$max_iter=max_iter
+
+d_par0$iter_cat=floor(d_par0$iter/(max_iter+1)*9)
+
+
+
+d_par<- bind_rows(d_par,d_par0)
+
+}
+else
+{
+  j=j+1
+  print("failed->",paste0(f[i]," run",j))
+  
+}
+}
+  
+}
+
+
+```
+
+
+```{r}
+d_prior=data.frame()
+
+for (i in seq_len(length(f))){
+d_p <-read.csv(paste0(f[i],"_prior.csv"))
+d_p$scheme=schemes[i]
+d_p$algorithm=algorithms[i]
+d_prior<-bind_rows(d_p,d_prior)
+}
+
+```
+
+```{r}
+d_prior%>%group_by(scheme, algorithm)%>%summarise(num_param=n())->scheme_par_count
+scheme_par_count
+```
+
+
+
+```{r}
+d_prior%>%filter(parameter_transformation!="Fixed", scheme=="scheme_10")->parlist
+parlist$parameter_name
+
+
+```
+
+
+
+```{r}
+
+
+pars=unique(d_par$i_par)
+for (i_p in pars)
+   print(d_par%>%filter(beta==1,i_par==i_p)%>%ggplot()+geom_point(aes(x=iter,y=par_value, color=as.factor(i_walker)))+geom_hline(aes(yintercept = parlist$transformed_mean[i_p+1]))+ggtitle(paste0(parlist$parameter_name[i_p+1]))+ facet_wrap(scheme~., scales = "free_x"))
+
+
+```
+```{r}
+d_par$parameter=parlist$parameter_name[d_par$i_p+1]
+d_par$parameter_expected=parlist$transformed_mean[d_par$i_p+1]
+d_par<-d_par%>% mutate(parameters=factor(parameter,levels=parlist$parameter_name))
+```
+
+
+
+```{r}
+
+fig_posteriors<-function(data,param_list, bw, labels=c()){
+  
+  
+  ggplot() +
+  geom_freqpoly(data = filter(data,beta==1,parameters %in% param_list), binwidth = bw, aes(10^par_value, after_stat(ndensity), color = scheme)) +
+  facet_grid(parameters ~ ., scales = "free", switch = "y", labeller= as_labeller(labels, default = label_parsed)) +
+  theme_nature()+
+  theme(
+    #panel.spacing.x = unit(1, "mm"),
+    strip.placement = "outside", # Moves strip to the right
+    strip.text.y.left =  element_text(angle = 0, hjust = 1,size = 7) ,# Ensures horizontal orientation
+     strip.background = element_blank(),
+    axis.text.y = element_blank(), # Removes y-axis text
+    axis.title.y = element_blank(), # Removes y-axis title
+    axis.ticks.y = element_blank(), 
+    axis.line.y = element_blank(), 
+    legend.position = "none",
+    axis.title.x = element_text(size = 7),       # Axis titles
+    axis.text.x = element_text(size = 6),        # Axis labels
+    plot.title = element_text(size = 7),        # Optional plot title, if needed
+) +
+     ylab("parameter value") +
+  scale_x_log10(labels = scales::label_log())
+}
+```
+
+
+
+
+
+```{r, fig.width=6, fig.height=8}
+
+fig_5A<-function(){
+
+d_par%>% filter((beta == 1.0)|(beta == 0.0), i_par>=10, i_par<13) %>%mutate(parameters=factor(parameter,levels=parlist$parameter_name), tr_par= factor(parameter,labels = parlist$parameter_transformation, levels = parlist$parameter_name), beta=factor(beta),  value= if_else(tr_par=="Log10",10^par_value, par_value) )%>%select(-parameter, - tr_par, -parameter_expected, -i_par, -par_value)%>%pivot_wider(names_from = parameters, values_from = value)%>%mutate(current_max = Leakeage_current_ratio*Rocking_Current_factor^(3)/(1+Leakeage_current_ratio*Rocking_Current_factor^(3)), current_3= Gating_Current, current_2 = Leakeage_current_ratio*Rocking_Current_factor^(2)/(1+Leakeage_current_ratio*Rocking_Current_factor^(2))/current_max*Gating_Current, current_1 = Leakeage_current_ratio*Rocking_Current_factor^(1)/(1+Leakeage_current_ratio*Rocking_Current_factor^(1))/current_max*Gating_Current, current_0 = Leakeage_current_ratio*Rocking_Current_factor^(0)/(1+Leakeage_current_ratio*Rocking_Current_factor^(0))/current_max*Gating_Current, current_2_3= current_2 / current_3, current_1_2 = current_1/current_2, current_0_1 = current_0/current_1)%>%select(-Rocking_Current_factor,-Leakeage_current_ratio,-Gating_Current)%>%pivot_longer(cols = starts_with("current_"),
+    )->d_parr0
+d_parr0%>%filter(name %in% c("current_0","current_1","current_2","current_3"),iter_cat>7, scheme=="scheme_10")%>%
+  mutate(name= recode(name,"current_0"="No rotated subunit",
+                      "current_1"="1 rotated subunit", 
+                      "current_2"="2 rotated subunits", 
+                      "current_3"="3 rotated subunits", 
+                      ))%>%
+  mutate(name= factor(name, levels=c(
+    "3 rotated subunits",
+    "2 rotated subunits",
+    "1 rotated subunit",
+    "No rotated subunit"
+    )))  ->d_parr
+
+prior_posterior_color_scale=c("prior"="#D3D3D3", "posterior"="#2C3E50")
+
+return (
+ggplot(d_parr)+geom_freqpoly(data=filter(d_parr,beta==1.0, name%in% c("No rotated subunit","1 rotated subunit")),aes(value, after_stat(ndensity),color="posterior"), binwidth=0.0001)+geom_freqpoly(data=filter(d_parr,beta==1.0, !name%in% c("No rotated subunit","1 rotated subunit")),aes(value, after_stat(ndensity),color="posterior"), binwidth=0.05)+
+    facet_grid(name ~ ., switch = "y") +
+  theme_nature()+
+  theme(
+    #panel.spacing.x = unit(1, "mm"),
+    strip.placement = "outside", # Moves strip to the right
+    strip.text.y.left = element_blank(),# element_text(angle = 0, hjust = 1,size = 7) ,# Ensures horizontal orientation
+     strip.background = element_blank(),
+    axis.text.y = element_blank(), # Removes y-axis text
+    axis.title.y = element_blank(), # Removes y-axis title
+    axis.ticks.y = element_blank(), 
+    axis.line.y = element_blank(), 
+    legend.position = "none",
+    axis.title.x = element_text(size = 7),       # Axis titles
+    axis.text.x = element_text(size = 6),        # Axis labels
+    plot.title = element_text(size = 7),        # Optional plot title, if needed
+) +
+     ylab("parameter value") +
+ scale_color_manual(values = prior_posterior_color_scale)+xlab("unitary current (pA)")
+)
+}
+fig_5A()
+```
+
+
+
+
+```{r, fig.width=6, fig.height=8}
+
+fig_5W<-function(d_par, number, x_scale_space){
+plot_conductance<-function(d_parr,xmax, n, binwidth){
+
+prior_posterior_color_scale=c("prior"="#D3D3D3", "posterior"="#2C3E50")
+
+return (
+ggplot(d_parr)+geom_freqpoly(data=filter(d_parr,beta==1.0, name==paste0("current_",n) ),aes(value, after_stat(ndensity),color="posterior"), binwidth=binwidth) +
+  theme_nature()+scale_y_continuous(breaks = waiver(),n.breaks = 3, sec.axis =dup_axis(name=paste0(n), labels = NULL,breaks = NULL))+
+     scale_x_continuous( limits = c(0,xmax))+
+     ylab("posterior probability relative density") +
+ scale_color_manual(values = prior_posterior_color_scale)+theme(axis.title.x =element_blank())
+)
+}
+d_par%>% filter((beta == 1.0), i_par>=10, i_par<13) %>%mutate(parameters=factor(parameter,levels=parlist$parameter_name), tr_par= factor(parameter,labels = parlist$parameter_transformation, levels = parlist$parameter_name), beta=factor(beta),  value= if_else(tr_par=="Log10",10^par_value, par_value) )%>%select(-parameter, - tr_par, -parameter_expected, -i_par, -par_value)%>%pivot_wider(names_from = parameters, values_from = value)%>%mutate(current_max = Leakeage_current_ratio*Rocking_Current_factor^(3)/(1+Leakeage_current_ratio*Rocking_Current_factor^(3)), current_3= Gating_Current, current_2 = Leakeage_current_ratio*Rocking_Current_factor^(2)/(1+Leakeage_current_ratio*Rocking_Current_factor^(2))/current_max*Gating_Current, current_1 = Leakeage_current_ratio*Rocking_Current_factor^(1)/(1+Leakeage_current_ratio*Rocking_Current_factor^(1))/current_max*Gating_Current, current_0 = Leakeage_current_ratio*Rocking_Current_factor^(0)/(1+Leakeage_current_ratio*Rocking_Current_factor^(0))/current_max*Gating_Current, current_2_3= current_2 / current_3, current_1_2 = current_1/current_2, current_0_1 = current_0/current_1)%>%select(-Rocking_Current_factor,-Leakeage_current_ratio,-Gating_Current)%>%pivot_longer(cols = starts_with("current_"),
+    )->d_parr0
+
+d_parr0%>%filter(name %in% c("current_0","current_1","current_2","current_3"),iter_cat>7, scheme=="scheme_10")->d_parr
+xmax=max(d_parr$value, na.rm = T)
+
+A<-plot_conductance(d_parr, xmax,3, binwidth =0.05 )+labs(tag=number)+theme(plot.tag = element_text(face="bold"))
+B<-plot_conductance(d_parr, xmax,2, binwidth =0.05 )
+C<-plot_conductance(d_parr, xmax,1, binwidth =0.0001 )
+D<-plot_conductance(d_parr, xmax,0, binwidth =0.0001 )
+E<-ggplot()+scale_y_continuous( sec.axis =dup_axis(name="number of rotated subunits", labels = NULL,breaks = NULL))+nature_theme(8)+theme(mplot.margin = margin(
+      t = 0,
+      r = 0,
+      b = 0,
+      l = 0,
+      unit = "pt"
+    ), axis.title.y.right =  element_text(  size = 8, vjust=1
+      ))
+  # wrap_elements(textGrob(label="number of rotated subunits",rot = -90,hjust=0, vjust = 0.5,gp = gpar(fontfamily="Arial", fontsize=8)) )
+x_title<-ggplot()+theme_nature(8)+xlab("unitary current (pA)")+theme(mplot.margin = margin(
+      t = 0,
+      r = 0,
+      b = 0,
+      l = 0,
+      unit = "pt"
+    ))
+return (wrap_plots(wrap_plots(A,B,C,D,E,design = "
+                            AE
+                            BE
+                            CE
+                            DE", 
+                            axes="collect", widths=c(10,0.25)),x_title, nrow = 2, 
+                   heights =  c(4,x_scale_space)))
+
+}
+fig_5W(d_par,"c", 1/1000)
+```
+
+
+
+
+
+
+
+
+```{r}
+
+file="./r_analysis/data/w9_IE_DR_32c_32s_4b_scheme_10_inact_PI_logbaseline_0_0_scheme_10_inact_c04c49f_192436s748577_10921472283437478284"
+```
+
+
+
+
+
+```{r}
+#d_iter<-bind_rows(d_iter0,d_iter1)
+
+j=10
+d_x <-data.frame()
+
+while(file.exists(paste0(file,"_",j,"__i_beta__i_walker__i_x_i_state.csv"))){
+  tmp <- try(d2 <-read.csv(paste0(file,"_",j,"__i_beta__i_walker__i_x_i_state.csv"))%>%unique())
+  if (!inherits(tmp, 'try-error')){
+  d2$run=j
+  d_x<-bind_rows(d_x,d2)
+  print(paste0(" run",j))
+  }
+  j=j+1
+ 
+}
+max_iter=max(d_x$iter)
+d_x$max_iter=max_iter
+
+d_x$iter_cat=floor(d_x$iter/(max_iter+1)*9)
+
+#d_par1<- read_csv(paste0(file1,"_1__i_beta__i_walker__i_par.csv"))
+#d_par<-bind_rows(d_par0,d_par1)
+```
+
+```{r}
+colnames(d_x)
+```
+
+
+
+```{r}
+colnames(d_x)<-c("iter","iter_time","i_beta","beta","i_walker" , "id_walker", "i_step"  ,  "i_state" ,  "j_state"  
+, "moment"    ,"value"  )
+
+d_x[,1:11]->d_x
+
+d_x0<-d_x
+#d_prior%>%filter(parameter_transformation!="Fixed")->parlist
+file_x= "./experiments/Moffatt_Hume_2007_ATP_time_idealized.txt"
+```
+
+
+```{r}
+d_y=read.csv(file_x)
+i_step_max=max(d_y$i_step,na.rm = T)
+i_step_trace=(i_step_max+1)/7; 
+d_y$i_trace=floor(d_y$i_step/i_step_trace)
+
+d_y=left_join(d_y,d_y%>%group_by(i_trace)%>%filter(time-i_trace*121<2, ATP_concentration>0)%>%summarise(t_pulse=min(time)))
+
+d_y$t=d_y$time-d_y$t_pulse
+```
+
+
+```{r}
+d_x%>%left_join(d_y, by=join_by(i_step), relationship = "many-to-many")->d_x
+d_x%>%filter(moment=="mean")%>%left_join(states,by=join_by(i_state==id_state))->d_xs
+
+ATPs =c(0.1,0.2,0.5,1,2,5,10)
+d_xs<-d_xs%>%mutate(ATP= factor(ATPs[i_trace+1],levels=ATPs))
+
+```
+
+
+
+```{r}
+d_xs%>%mutate(i_walker=factor(i_walker,unique(d_xs$i_walker)))->d_xs
+```
+
+
+
+```{r}
+get_mirror_states(model)->mirror_state
+swap_states<-mirror_state[mirror_state!=1:24]
+
+
+my_mirror_state<-function(i_state,mirror_state){
+  return(  ifelse (is.na(mirror_state[i_state]) , i_state,mirror_state[i_state]))
+}
+
+mirror_state_step<-function( i_state_step, mirror_state){
+  i_step=strsplit(i_state_step,split = "_")[[1]]
+  i=as.numeric(i_step[1])
+  step=as.numeric(i_step[2])
+  return (paste0(my_mirror_state(i,mirror_state),"_", step))
+  
+}
+```
+
+
+```{r}
+d_xsr<-d_x0%>%filter(!is.null(i_state), !is.null(value))%>%mutate(i_state=i_state+1,j_state=j_state +1)
+```
+
+
+```{r}
+test_state_step<-"4_1010" 
+
+m_test_state_step=mirror_state_step(test_state_step,mirror_state)
+
+i_step_test=1010
+t_test=2e-5
+
+
+d_xs_w<-d_xsr%>%drop_na()%>%pivot_wider(names_from = c("i_state", "i_step"), values_from = value)
+
+d_xs_o<-d_xs_w
+```
+
+
+
+
+
+
+```{r}
+all_state_steps<-colnames(d_xs_w)[9:ncol(d_xs_w)]
+for (i_state_step in all_state_steps){
+    m<-mirror_state_step(i_state_step, mirror_state)
+    if(is.na(m))
+      print(i_state_step)
+    if (m!=i_state_step){
+      d_xs_o[[i_state_step]]<- ifelse(d_xs_w[[test_state_step]] < d_xs_w[[m_test_state_step]], d_xs_w[[i_state_step]], d_xs_w[[m]])
+    }
+  }
+```
+
+
+```{r}
+d_xs_m<-d_xs_o%>%pivot_longer(9:ncol(d_xs_o), names_to = c("i_state", "i_step"), names_sep="_", names_transform = as.numeric, values_to = "value")
+
+```
+
+
+```{r}
+d_xs_m%>%left_join(d_y, by=join_by(i_step), relationship = "many-to-many")->d_xs_m
+```
+
+
+```{r}
+d_xs_m%>%filter(moment=="mean")%>%mutate(i_state=i_state-1)%>%left_join(states,by=join_by(i_state==id_state ))->d_xs_ms
+
+```
+
+```{r}
+ATPs =c(0.1,0.2,0.5,1,2,5,10)
+d_xs_ms<-d_xs_ms%>%mutate(ATP= factor(ATPs[i_trace+1],levels=ATPs))%>%mutate(i_walker=factor(i_walker,unique(d_xs_ms$i_walker)))
+```
+
+
+
+
+```{r}
+d_xs_ms%>%group_by(beta,i_step,i_state,j_state,moment,time,i_sub_step,i_trace,t,Binding,Rocking,id_sub_state,number_of_samples,ATP)%>%summarise(mean_value=mean(value,na.rm = T), 
+                                                                                                                              median_value=median(value,na.rm = T))->d_xs_msm
+```
+
+```{r}
+# lets do a hack to display line values for the single value on the control pulse. 
+
+add_wiggle_for_10ms<-function(d_xs_ms,dt){
+  
+d_10ms<-d_xs_ms%>%filter(ATP_concentration==1000)
+tm=max(d_10ms$t)*0.5+min(d_10ms$t)*0.5
+
+d_10ms<-d_10ms%>%filter(t>tm)
+d_10ms_pos<-d_10ms%>%mutate(t=t+dt, i_trace= i_trace+10)
+d_10ms_neg<-d_10ms%>%mutate(t=t-dt, i_trace= i_trace+10)
+return (bind_rows(list(d_xs_ms%>%filter(t<30),d_10ms_neg,d_10ms_pos)))
+}
+
+
+```
+
+
+
+```{r}
+# Function to create an individual plot
+
+g_state<-function(n_states){
+g_ConformationalStates(n_states,color="interaction_label",linewidth=0.3,  fill="interaction_state")+scale_linetype_manual(values = c("bound" = "solid", "unbound" = "dotted"))+scale_color_manual(aesthetics = c("colour", "fill"),values=color_scheme  )+theme_void() +theme(legend.position = "none")
+}
+
+
+figure_4_H <- function(data, n_states, color, x_scale, annotate_color, y_scale="fixed", atp_colors, xtitle, gstate_left,gstate_size, tag, x_title_space, y_title_space) {
+  margins <- function() {
+    return (theme(plot.margin = margin(
+      t = 1,
+      r = 1,
+      b = 1,
+      l = 1,
+      unit = "pt"
+    )))
+  }
+  
+  scales_display<-function(x, y){
+   out=theme()
+   if (x %in% c("N","T","L"))
+     out=out+theme(axis.title.x = element_blank())
+   if (x %in% c("N","T"))
+     out=out+theme( axis.text.x = element_blank())# Removes y-axis text
+   if (x %in% c("N"))
+     out=out+theme(
+       axis.ticks.x = element_blank(), 
+      axis.line.x = element_blank()
+     )
+   if (y %in% c("N","T","L"))
+     out=out+theme(axis.title.y = element_blank())
+   if (y %in% c("N","T"))
+     out=out+theme( axis.text.y = element_blank())# Removes y-axis text
+   if (y %in% c("N"))
+     out=out+theme(
+       axis.ticks.y = element_blank(), 
+      axis.line.y = element_blank()
+     )
+   return (out)
+  }
+  
+  
+  digits<-function(x){
+      return (floor(log10(x)))
+    }
+    
+  get_scale_4_step<-function(max){
+    d=digits(max)
+    fd=ceiling(max*10^(-d+1))
+    step=ifelse(fd<25,0.5,
+         ifelse(fd<50,1,
+         ifelse(fd<100,2,5
+           )))*10^d
+    return (step)
+  }
+  
+  scale_y <- function(y_max, step) {
+    return(scale_y_continuous(
+      limits = c(0, y_max),
+      breaks = seq(0, 4*step,step)
+    ))
+  }
+  
+  binding_title<-function(iR,binding, max_n_binding){
+    if (iR>1)
+       return (theme())
+    else if (max_n_binding==1)
+      return (labs(title = "bound subunits", subtitle =paste0(binding)))
+    else if (binding!=1)
+      return (labs(subtitle = paste0(binding)))
+    else
+      return (list(labs(title = "bound subunits", subtitle =paste0(binding)), theme(
+        plot.title = element_text(hjust=1))))
+  }
+  
+  
+  plot_state <- function(data, color, y_max, step,x_scale, annotate_color, x_title) {
+    if (x_scale=="log10"){
+    return(
+      ggplot(data) +
+        geom_line(
+          aes(
+            x = log10(t),
+            y = value,
+            color = .data[[color]],
+            group = interaction(iter, i_walker, .data[[color]], i_state,i_trace)
+          ),
+          alpha = 0.3
+        ) +
+        scale_y(y_max, step) + # Different y_max per state
+        scale_color_manual(values=atp_colors)+
+        ylab("state probability") + xlab(x_title) +
+        theme_nature() +
+        theme(legend.position = "none") +
+        margins() +
+        annotate_color(data)
+    )
+  }
+  else if (x_scale== "reverse")
+    {
+    return(
+      ggplot(data) +
+        geom_line(
+          aes(
+            x = -t,
+            y = value,
+            color = .data[[color]],
+            group = interaction(iter, i_walker, .data[[color]], i_state,i_trace)
+          ),
+          alpha = 0.3
+        ) +
+        scale_y(y_max, step) + # Different y_max per state
+        scale_color_manual(values=atp_colors)+
+        ylab("state probability") + xlab(x_title) +
+        theme_nature() +
+        scale_x_reverse(breaks=c(1,0.5,0))+
+        theme(legend.position = "none") +
+        margins() +
+        annotate_color(data)
+    )
+  }
+    else
+    {
+        
+    }
+  }
+  figs <- list()
+  Rockings = unique(na.omit(data$Rocking))
+  max_y = max(data$value, na.rm = T)
+  step=get_scale_4_step(max_y)
+  ijk=1 
+  nR = length(Rockings)
+  nB = length(unique(na.omit(data$Binding)))
+  for (iR in seq_len(nR)) {
+    d_i <- data %>% filter(Rocking == Rockings[nR - iR + 1])
+    n_i <- n_states %>% filter(Rocking == Rockings[nR - iR + 1])
+    show_x=ifelse(iR == nR, "L","N")
+      
+    if (y_scale=="free"){
+      max_y = max(d_i$value, na.rm = T)
+      step=get_scale_4_step(max_y)
+    }
+    Bindings = unique(na.omit(d_i$Binding))
+    for (iB in seq_len(length(Bindings))) {
+      #browser()
+      d_ij <- d_i %>% filter(Binding == Bindings[iB])
+      n_ij <- n_i %>% filter(Binding == Bindings[iB])
+      Cells = unique(na.omit(d_ij$id_sub_state))
+      fig_cell <- list()
+      state_cell <- list()
+      max_ycells <- c()
+      nCells=length(Cells)
+      for (isub in seq_len(length(Cells))) {
+        #  browser()
+        show_y=ifelse(iB==1,"L",ifelse((nCells==1)|(iB==3),"N",ifelse(isub==3,"L","T")))
+        d_ijk <- d_ij %>% filter(id_sub_state == Cells[isub])
+        n_ijk <- n_ij %>% filter(id_sub_state == Cells[isub])
+        
+        figs[[ijk]] <- plot_state(d_ijk,
+                                       y_max = max_y / length(Cells),
+                                       step=step,
+                                       color = color,
+                                       x_scale, 
+                                       annotate_color=annotate_color,xtitle)+
+          scales_display(x = show_x, y=show_y) + 
+          binding_title(iR,Bindings[iB],nB)+
+           inset_element(g_state(n_ijk),
+           left = unit(gstate_left, "cm"),
+           right = unit(gstate_left+gstate_size,"cm"),
+           top = 1 ,
+           bottom =  unit(1, 'npc') - unit(gstate_size, "cm")
+         )
+        ijk=ijk+1
+      }
+    }
+
+
+  }
+state_plot_design=ifelse(nB == 4,"
+ABCD
+ABCD
+ABCD
+EFIL
+EGJL
+EHKL
+MNQT
+MORT
+MPST
+UVWX
+UVWX
+UVWX
+", 
+"
+A
+B
+C
+D
+")
+
+if (y_title_space ==0 )figs[[1]][[1]]<- figs[[1]][[1]]+labs(tag=tag)+theme(
+  plot.tag.location = "margin", plot.tag = element_text(size=7,face="bold")
+)
+
+
+
+p<-wrap_plots(figs, axes = "collect", 
+                                   axis_titles = "collect", 
+                     design = state_plot_design, 
+                     widths = c(1,1,1,1), 
+                     heights = c(1,1,1,1))
+
+
+x_title<-ggplot()+theme_nature()+xlab(xtitle)+theme(mplot.margin = margin(
+      t = 0,
+      r = 0,
+      b = 0,
+      l = 0,
+      unit = "pt"
+    ))
+
+
+y_title<-ggplot()+theme_nature()+labs(y="state probability", tag = tag)+theme(mplot.margin = margin(
+      t = 0,
+      r = 0,
+      b = 0,
+      l = 0,
+      unit = "pt"
+    ))
+
+if (y_title_space==0)
+{
+  pp<-p
+  xt=x_title
+}
+else{
+  pp<-wrap_plots(y_title, p, ncol = 2, widths = c(y_title_space, nB))
+  xt<-wrap_plots(plot_spacer(),x_title,ncol = 2, widths = c(y_title_space, nB) )
+}  
+
+return(wrap_plots(
+  pp, 
+  xt,nrow = 2, heights = c(nR,x_title_space))
+  )
+
+}
+
+
+```
+
+
+```{r}
+annotate_ATP<-function(data){
+  if (data%>%filter(i_state==0)%>%nrow()>0){
+    t10=3e-2
+    t01=5e-4
+    y10 <- data %>%
+  filter(between(t, t10*0.9, t10*1.1), ATP==10) %>%
+  summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+  pull(mean_value)
+    
+    y01 <- data %>%
+  filter(between(t, t01*0.9, t01*1.1), ATP==0.1) %>%
+  summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+  pull(mean_value)
+    
+  return (list(annotate("text", x=log10(t10*5), y= y10-0.15,  label="10 mM", size= 7*25.4 / 72.27),
+   annotate("text", x=log10(t01*10), y= y01+0.25,  label= "0.1 mM", size= 7*25.4 / 72.27)
+  ))
+    
+  }
+  else return (theme())
+    
+}
+annotate_nothing<-function(data){theme()}
+
+```
+
+```{r Figure 4, fig.width=180/24.5, fig.height=170/24.5}
+tmin=0
+tmax=80
+d=add_wiggle_for_10ms(d_xs_ms, 10)
+atp_colors <- c(
+  # Viridis-based sequential colors (already colorblind-friendly)
+  "0.1" = "#440154",  # Deep purple
+  "0.2" = "#31688E",  # Dark blue
+  "0.5" = "#21918C",  # Teal
+  "1"   = "#35B779",  # Green
+  "2"   = "#6DCD59",  # Yellow-green
+  "5"   = "#B4DE2C",  # Light yellow-green
+  "10"  = "#FDE725",  # Bright yellow
+  
+  # Categorical noise colors (modified for accessibility)
+  "Current_Noise" = "#808080",  # Neutral gray (medium contrast)
+  "Pink_Noise"    = "#CC79A7"   # Accessible pink/magenta (from Okabe-Ito)
+)
+annotate_ATP<-function(data){
+  if (data%>%filter(i_state==0)%>%nrow()>0){
+    t10=3e-2
+    t01=5e-4
+    y10 <- data %>%
+  filter(between(t, t10*0.9, t10*1.1), ATP==10) %>%
+  summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+  pull(mean_value)
+    
+    y01 <- data %>%
+  filter(between(t, t01*0.9, t01*1.1), ATP==0.1) %>%
+  summarise(mean_value = mean(value, na.rm = TRUE)) %>%
+  pull(mean_value)
+    
+  return (list(annotate("text", x=t10*5, y= y10-0.15,  label="10 mM", size= 7*25.4 / 72.27),
+   annotate("text", x=t01*10, y= y01+0.15,  label= "0.1 mM", size= 7*25.4 / 72.27)
+  ))
+    
+  }
+  else return (theme())
+    
+}
+annotate_nothing<-function(data){theme()}
+
+
+figure_4_H(data = d%>%filter(t>tmin, t<tmax, beta==1),n_states = n_states,color = "ATP", x_scale = "log10",y_scale = "fixed",annotate_color = annotate_nothing, xtitle = expression(log[10](time~since~pulse~(s))), atp_colors = atp_colors,gstate_left = 0.1, gstate_size = 0.5, tag = "b", x_title_space = 1/1000, y_title_space = 0/1000)->B
+tmin=-1
+tmax=0
+
+figure_4_H(data = d%>%filter(t>tmin, t<tmax, beta==1, Binding==0),n_states = n_states,color = "ATP", x_scale = "reverse",y_scale = "free",annotate_color = annotate_nothing, xtitle = "time to pulse (s)", atp_colors = atp_colors,gstate_left = 0.1, gstate_size = 0.5, tag = "a", x_title_space = 1/1000, y_title_space = 1/1000)->A
+```
+
+
+```{r Figure 4, fig.width=180/24.5, fig.height=170/24.5}
+library(grid)
+fig_5W(d_par,number = "c", x_scale_space = 1/1000)->C
+
+
+
+```
+
+
+```{r Figure 4, fig.width=180/24.5, fig.height=120/24.5}
+wrap_plots(A,B,C,widths = c(1.1,3,1),design = "
+ABC
+               ")
+ggsave("./r_analysis/results/Figure_5.pdf",device = cairo_pdf, dpi = 450, width = 180, height = 120 , units = "mm")
+
+#ggsave("Figure_5_states.tiff", dpi = 450, width = 180, height = 120, units = "mm" )
+```
+
+
+
+```{r}
+sessionInfo()
+```

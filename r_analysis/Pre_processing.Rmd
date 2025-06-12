@@ -1,0 +1,153 @@
+---
+  title: "variable selection"
+  author: "Luciano Moffatt"
+  date: "`r Sys.Date()`"
+  output: html_document
+  editor_options: 
+    markdown: 
+      wrap: 72
+---
+  
+```{r setup, include=FALSE}
+  library(tidyverse)
+```
+  
+  Here we filter the output from the mcmc by removing unutilized
+  variables. The output files would be processed by the figure scripts.
+  
+  First list of files:
+  
+```{r}
+  # fille here the directory where the mcmc files are stored
+  
+  source_dir="../r_analysis/data/"
+  
+  destination_dir="./r_analysis/data/compressed_files"
+  
+  
+  f=c("w9_IE_DR_32c_32s_4b_scheme_4_inact_PI_logbaseline_0_0_scheme_4_inact_c04c49f_192429s339391_9763489321247989362"
+  ,"w9_IE_DR_32c_32s_4b_scheme_9_inact_PI_logbaseline__0_scheme_9_inact_c04c49f_192416s931142_12287622095791405289"  
+  ,"w9_IE_DR_32c_32s_4b_scheme_10_inact_PI_logbaseline_0_0_scheme_10_inact_c04c49f_192436s748577_10921472283437478284"
+  ,"w9_IE_DR_32c_32s_4b_scheme_11_inact_PI_logbaseline_0_0_scheme_11_inact_c04c49f_192425s711185_9045678489066680078"
+    
+  ,"w9_IE_DR_16c_32s_4b_scheme_1_inact_PI_logbaseline__0_scheme_1_inact_dc1d295_223334s263487_8310266929510757478"
+  ,"w9_IE_DR_16c_32s_4b_scheme_2_inact_PI_logbaseline__0_scheme_2_inact_dc1d295_223334s291216_2697291069142075057"
+  ,"w9_IE_DR_16c_32s_4b_scheme_3_inact_PI_logbaseline__0_scheme_3_inact_dc1d295_223506s305519_13860605603193989031"
+  ,"w9_IE_DR_8c_32s_4b_scheme_4_inact_PI_logbaseline__0_scheme_4_inact_dc1d295_214825s965796_7939387029674022631"
+  ,"w9_IE_DR_16c_32s_4b_scheme_5_inact_PI_logbaseline__0_scheme_5_inact_dc1d295_223506s299557_5119792080078986291"
+  ,"w9_IE_DR_16c_32s_4b_scheme_6_inact_PI_logbaseline_0_0_scheme_6_inact_c04c49f_185512s714374_18365181060512183813"
+  ,"w9_IE_DR_16c_32s_4b_scheme_7_inact_PI_logbaseline_0_0_scheme_7_inact_c04c49f_185514s709189_2269608144678804496"
+  ,"w9_IE_DR_64c_32s_4b_scheme_7_inact_PI_logbaseline__0_scheme_7_inact_dc1d295_120304s106971_11772801414124283307"
+  ,"w9_IE_DR_8c_32s_4b_scheme_8_inact_PI_logbaseline__0_scheme_8_inact_dc1d295_214837s486785_14256113690662679817"
+  ,"w9_IE_DR_8c_32s_4b_scheme_9_inact_PI_logbaseline__0_scheme_9_inact_dc1d295_214836s626989_9643364841238627784"
+  ,"w9_IE_SNR_16c_32s_4b_scheme_1_inact_PI_logbaseline__0_scheme_1_inact_dc1d295_223333s938967_10669961719330648728"
+  ,"w9_IE_SNR_16c_32s_4b_scheme_2_inact_PI_logbaseline__0_scheme_2_inact_dc1d295_223334s259380_14267539618218186771"
+  ,"w9_IE_SNR_16c_32s_4b_scheme_3_inact_PI_logbaseline__0_scheme_3_inact_dc1d295_223506s12275_11155925867724252125"
+  ,"w9_IE_SNR_8c_32s_4b_scheme_4_inact_PI_logbaseline__0_scheme_4_inact_dc1d295_214825s994106_2411327980505654543"
+  
+  ,"w9_IE_SNR_16c_32s_4b_scheme_5_inact_PI_logbaseline__0_scheme_5_inact_dc1d295_223506s273848_6864271229892764521"
+  ,"w9_IE_SNR_16c_32s_4b_scheme_6_inact_PI_logbaseline_1_0_scheme_6_inact_c04c49f_185512s707148_13419798712961365324"
+  ,"w9_IE_SNR_16c_32s_4b_scheme_7_inact_PI_logbaseline_1_0_scheme_7_inact_c04c49f_185514s630597_2814228287119122003"
+  ,"w9_IE_SNR_64c_32s_4b_scheme_7_inact_PI_logbaseline__0_scheme_7_inact_dc1d295_061441s611280_16273321531980792390"
+  ,"w9_IE_SNR_8c_32s_4b_scheme_8_inact_PI_logbaseline__0_scheme_8_inact_dc1d295_214836s679427_13024900767729018640"
+  ,"w9_IE_SNR_8c_32s_4b_scheme_9_inact_PI_logbaseline__0_scheme_9_inact_dc1d295_214837s246056_15983947036721080527"
+  ,"w9_IE_SNR_16c_32s_4b_scheme_10_inact_PI_logbaseline_0_0_scheme_10_inact_c04c49f_233118s322352_16423496262467810219"
+  ,"w9_IE_SNR_16c_32s_4b_scheme_11_inact_PI_logbaseline_1_0_scheme_11_inact_c04c49f_233118s294728_4762429087681128461"
+  
+  )
+  
+```
+  
+```{r}
+  # Ensure the destination directory exists
+  if (!dir.exists(destination_dir)) {
+    dir.create(destination_dir, recursive = TRUE)
+  }
+  
+```
+  
+```{r}
+  compress_and_archive <- function(source_dir, destination_dir, output_name, pattern = NULL) {
+    # List files based on the given pattern in the source directory
+    files_to_archive <- list.files(source_dir, pattern = pattern, full.names = TRUE)
+    
+    if (length(files_to_archive) == 0) {
+      stop("No files found matching the pattern: ", pattern)
+    }
+    
+    # Get only the filenames (not the full paths)
+    filenames <- basename(files_to_archive)
+    
+    # Define the tar file and compressed archive file paths
+    tar_file <- tempfile(pattern = paste0(output_name, "_"), fileext = ".tar")
+    compressed_file <- file.path(destination_dir, paste0(output_name, ".tar.zst"))
+    
+    # Create tar archive with the full paths (to maintain the structure)
+    tar(tarfile = tar_file, files = files_to_archive, compression = "none")
+    
+    # Now we need to extract the filenames into the tar file (on the tar file)
+    # We will remove paths, keeping just filenames by creating a new tar with proper names
+    temp_tar_file <- tempfile(fileext = ".tar")
+    
+    # Use system command to create tar without directory structure
+    system(paste("tar --transform='s|", source_dir, "/||' -cf", shQuote(temp_tar_file), shQuote(tar_file)))
+    
+    # Compress the tar archive using zstd
+    system(paste("zstd -19 -o", shQuote(compressed_file), shQuote(temp_tar_file)), intern = TRUE)
+    
+    # Clean up temporary files
+    file.remove(tar_file)
+    file.remove(temp_tar_file)
+  }
+  
+```
+  
+```{r}
+  # Example usage: Compress only files that start with "run_" and end with "i_walker.csv"
+  compress_and_archive(source_dir = source_dir,destination_dir = destination_dir,output_name = "Raw_data_figure_1_scheme_10",  pattern = "^w9.*scheme_10.*i_walker\\.csv$")
+  
+  
+```
+  
+```{r}
+  decompress_and_extract <- function(archive_file, output_dir) {
+    if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+    
+    # Determine compression format
+    if (grepl("\\.zst$", archive_file)) {
+      system(paste("zstd -d -o", shQuote(sub("\\.zst$", ".tar", archive_file)), shQuote(archive_file)), intern = TRUE)
+      archive_file <- sub("\\.zst$", ".tar", archive_file)
+    } else if (grepl("\\.xz$", archive_file)) {
+      system(paste("xz -d", shQuote(archive_file)), intern = TRUE)
+      archive_file <- sub("\\.xz$", ".tar", archive_file)
+    } else {
+      stop("Unsupported format. Use 'zst' or 'xz'.")
+    }
+  
+    # Extract tar archive
+    untar(archive_file, exdir = output_dir)
+    file.remove(archive_file)  # Remove tar file after extraction
+    
+    message("Decompression and extraction completed!")
+  }
+  
+  # Example usage
+  decompress_and_extract("mcmc_archive.tar.zst", "path/to/extracted")
+  
+```
+  
+  Columns used by PSFR/figure 1 extension: \_\_i_beta\_\_i_walker.csv --\>
+  this can be reduced a lot columns: beta,iter,log_Evidence, i_walker
+  
+  columns used by Figure 2. \_\_i_beta\_\_i_walker\_\_i_par.csv beta,
+  iter, i_par, par_value, i_walker
+  
+  \_\_i_beta\_\_i_walker\_\_i_par_i_state.csv -\> n beta, iter, i_walker,
+  "agonist", "i_state_from","i_state_to", rate_value
+  
+  \_\_i_beta\_\_i_walker\_\_i_x_i_state.csv -\>no much to do either
+  colnames(d_x)\<-c("iter","iter_time","i_beta","beta","i_walker" ,
+  "id_walker", "i_step" , "i_state" , "j_state"\
+  , "moment" ,"value" )
+  
+  \_\_i_beta\_\_i_walker\_\_i_x.csv -\> no much to do i_step,time, Ypre

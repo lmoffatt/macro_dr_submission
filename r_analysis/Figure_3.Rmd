@@ -1,0 +1,1385 @@
+---
+title: "Figure 3 definitive"
+author: "Luciano Moffatt"
+date: "2024-11-11"
+output: pdf_document
+---
+
+
+
+
+
+```{r setup}
+library(readr)
+library(tidyverse)
+library(envalysis)
+library(patchwork)
+library(cowplot)
+library(HDInterval)
+library(ConformationalModel)
+library(ggimage)
+if (!requireNamespace("ConformationalModel", quietly = TRUE)) {
+  if (!requireNamespace("devtools", quietly = TRUE)) {
+    install.packages("devtools")
+  }
+  devtools::install_github("lmoffatt/ConformationalModel")
+}
+library(ConformationalModel)
+
+```
+
+
+Here we analyze the samples of scheme_10
+
+
+
+2) Analysis of the posteriors of the rates . 
+
+
+
+lets define the conformational changes and its organization in domains
+
+
+```{r define model}
+changes <- conformationalChanges(
+conformational_changes = c("Binding", "Rocking"),
+agonists = c("ATP", "")
+)
+domains <- conformationaldomains(c(1, 2, 1, 2, 1, 2))
+interactions <- conformationalInteractions(
+labels = c("RB", "BR"),
+players_ids = list(c(2, 1), c(1, 2)),
+domains_ids = list(list(c(6, 1), c(2, 3), c(4, 5)), list(c(1, 2), c(3, 4), c(5, 6)))
+)
+conductances <- conductanceInteractions(
+labels = c("Rocking_Current_factor"),
+players_ids = list(c(2)),
+domains_ids = list(list(c(2),c(4),c(6)))
+)
+conductance_info<-conductanceInteractionInfo(id_conductance_interaction = 1,kind = "equilibrium", leakeage_label = "Leakeage_current_ratio")
+standard_states <- standardStates(id_conformational_change = c(2,2),id_interaction = c(1,2) ,pos_within_interaction = c(1,2) ,count =c(1,1) )
+```
+
+
+
+
+
+with all this information we define a conformational model: 
+
+
+```{r buil model}
+model=ConformationalModel(changes,domains, interactions,conductances,
+                                standard_states,
+                                conductance_info)
+
+```
+
+
+
+
+```{r filenames }
+#d_iter<-bind_rows(d_iter0,d_iter1)
+f=c(
+"./r_analysis/data/w9_IE_DR_32c_32s_4b_scheme_10_inact_PI_logbaseline_0_0_scheme_10_inact_c04c49f_192436s748577_10921472283437478284"
+
+)
+schemes=c("scheme_10")
+datas=c("full_experiment")
+
+repetitions=c(1)
+
+```                 
+
+```{r load rates}
+d_rate=data.frame()
+
+for (i in seq_len(length(f))){
+j=10
+file<- f[i]
+if(file.exists(paste0(file,"_",j,"__i_beta__i_walker__i_par_i_state.csv"))){
+ tmp <- try(d_rate0<-read.csv(paste0(file,"_",j,"__i_beta__i_walker__i_par_i_state.csv")))
+  if (!inherits(tmp, 'try-error')){
+    d_rate0$run=j
+   j=j+1
+                                          
+while(file.exists(paste0(file,"_",j,"__i_beta__i_walker__i_par_i_state.csv"))){
+  tmp <- try(d2<-read.csv(paste0(file,"_",j,"__i_beta__i_walker__i_par_i_state.csv")))
+  
+  if (!inherits(tmp, 'try-error')){
+  d2$run=j
+  d_rate0<-bind_rows(d_rate0,d2)
+  print(paste0(" run",j))
+  
+   j=j+1
+ 
+  }
+  else
+  {
+   j=j+1
+   
+  }
+}
+d_rate0$scheme=schemes[i]
+d_rate0$rep=repetitions[i]
+d_rate0$data=datas[i]
+max_iter=max(d_rate0$iter)
+d_rate0$max_iter=max_iter
+
+d_rate0$iter_cat=floor(d_rate0$iter/(max_iter+1)*9)
+
+
+d_rate<- bind_rows(d_rate,d_rate0)
+  }
+ else {
+    j=j+1
+  
+ }
+}
+}
+```
+
+
+Then load the parameters
+
+
+
+```{r load Paramters}
+
+d_par=data.frame()
+
+for (i in seq_len(length(f))){
+j=10
+file<- f[i]
+if(file.exists(paste0(file,"_",j,"__i_beta__i_walker__i_par.csv"))){
+  tmp <- try(d_par0<-read.csv(paste0(file,"_",j,"__i_beta__i_walker__i_par.csv")))
+  if (!inherits(tmp, 'try-error')){
+ d_par0$run=j
+ j=j+1
+ 
+while(file.exists(paste0(file,"_",j,"__i_beta__i_walker__i_par.csv"))){
+  tmp <- try(d2<-read.csv(paste0(file,"_",j,"__i_beta__i_walker__i_par.csv")))
+  
+  if (!inherits(tmp, 'try-error')){
+  d2$run=j
+  d_par0<-bind_rows(d_par0,d2)
+  print(paste0(" run",j))
+  
+   j=j+1
+ 
+  }
+  else j=j+1
+}
+d_par0$scheme=schemes[i]
+d_par0$rep=repetitions[i]
+d_par0$data=datas[i]
+max_iter=max(d_par0$iter)
+d_par0$max_iter=max_iter
+
+d_par0$iter_cat=floor(d_par0$iter/(max_iter+1)*9)
+
+d_par<- bind_rows(d_par,d_par0)
+
+}
+}
+}
+```
+
+
+```{r load prior}
+file<-f[1]
+d_prior<- read.csv(paste0(file,"_prior.csv"))
+#d_prior1<- read_csv(paste0(file1,"_prior.csv"))
+#d_prior<-bind_rows(d_prior0,d_prior1)
+#d_x<- read.csv(paste0(file,"__i_beta__i_walker__i_x.csv"))
+
+
+d_prior%>%filter(parameter_transformation!="Fixed")->parlist
+
+d_par$parameter=parlist$parameter_name[d_par$i_p+1]
+
+d_par$parameter=parlist$parameter_name[d_par$i_p+1]
+d_par$parameter_expected=parlist$transformed_mean[d_par$i_p+1]
+```
+
+
+
+
+```{r deal Bimodality}
+d_par_t<-d_par%>% filter((beta == 1.0 | beta==0),  i_par>=4, i_par<10) %>%mutate(parameters=factor(parameter,levels=parlist$parameter_name), tr_par= factor(parameter,labels = parlist$parameter_transformation, levels = parlist$parameter_name), beta=factor(beta),  value= if_else(tr_par=="Log10",10^par_value, par_value) )%>%select(-parameter, - tr_par, -parameter_expected, -i_par, -par_value)%>%pivot_wider(names_from = parameters, values_from = value)%>%
+  mutate(LB=if_else(RB<BR,RB,BR),LB_ron=if_else(RB<BR,RB_0,BR_1),LB_roff=LB_ron/LB,LB_bon=if_else(RB<BR,RB_1,BR_0),LB_boff=LB_bon/LB, UB=if_else(RB<BR,BR,RB), UB_ron=if_else(RB<BR,BR_1,RB_0),UB_roff=UB_ron/UB, UB_bon=if_else(RB<BR,BR_0,RB_1),UB_boff=UB_bon/UB , LB_UB=(LB/UB))%>%select(- starts_with("RB"),-starts_with("BR") )%>%pivot_longer(cols=(starts_with("LB") | starts_with("UB")),names_to = "parameter")
+
+d_par_wide<-d_par_t%>%filter(beta==1,parameter %in% c("LB","UB","UB_bon","UB_boff","UB_ron","UB_roff","LB_bon","LB_boff","LB_ron","LB_roff"))%>%pivot_wider(names_from = parameter, values_from = value)
+```
+
+
+```{r}
+alpha_points=0.01
+```
+
+
+
+
+
+
+```{r}
+d_BR<-d_par%>%filter(parameter%in%c("BR_0","RB_1"), beta==1)%>%select(-i_par)%>%pivot_wider(names_from = parameter, values_from = par_value)
+
+d_j<-inner_join(d_rate,d_BR)%>%pivot_wider(names_from = c("agonist", "i_state_from","i_state_to"), values_from = rate_value)
+states<-model$domain_states%>%filter(id_domain==1)%>%select(id_state,Binding,Rocking,id_sub_state)
+```
+
+
+
+```{r}
+(states%>%filter(Binding<2, Rocking<2,id_sub_state!=4))$id_state%>%unique()%>%sort()->id_states
+
+```
+
+
+
+
+switch RB with BR
+
+```{r deal bimodality on rates}
+
+get_mirror_states(model)->mirror_state
+
+d_rater<-d_rate%>%mutate(i_state_from=i_state_from+1,i_state_to=i_state_to +1)%>%filter(i_state_from%in% id_states, i_state_to%in% id_states)
+
+
+
+```
+
+
+```{r deal bimodality rates 2?}
+get_mirror_states(model)->mirror_state
+swap_states<-mirror_state[mirror_state!=1:24]
+
+mirror_transition<-function( rate_label, mirror_state){
+  ij=strsplit(rate_label,split = "_")[[1]]
+  i=as.numeric(ij[1])
+  j=as.numeric(ij[2])
+  return (paste0(mirror_state[i],"_", mirror_state[j]))
+  
+}
+
+d_rater<-d_rate%>%filter(i_state_to<24)%>%mutate(i_state_from=i_state_from+1,i_state_to=i_state_to +1)
+
+test_i<-2
+test_j<-4  # lower body
+
+test_rate= paste0(test_i,"_", test_j)  #lower_body
+m_test_rate=mirror_transition(test_rate, mirror_state = mirror_state) #upper_body
+```
+
+
+```{r}
+d_rate_w<-d_rater%>%select(-agonist)%>%pivot_wider(names_from = c("i_state_from", "i_state_to"), values_from = rate_value)
+```
+
+
+```{r pivot longer d_rate}
+d_rate_o<-d_rate_w
+
+rates<-colnames(d_rate_w)[14:ncol(d_rate_w)]
+
+for (r in rates){
+    m<-mirror_transition(r, mirror_state)
+    if (m!=r){
+      d_rate_o[[r]]<- ifelse(d_rate_w[[test_rate]] < d_rate_w[[m_test_rate]], d_rate_w[[r]], d_rate_w[[m]])
+    }
+  }
+  
+
+
+
+d_rate_m<-d_rate_o%>%pivot_longer(14:ncol(d_rate_o), names_to = c("i_state_from", "i_state_to"), names_sep="_", names_transform = as.numeric, values_to = "rate_value")
+
+```
+
+
+
+```{r}
+# Custom function to calculate the mode
+get_mode <- function(x) {
+  x %>%
+    table() %>%
+    as_tibble() %>%
+    filter(n == max(n)) %>%
+    pull(x)
+}
+```
+
+```{r}
+
+
+
+format_median_hdi_auto <- function(samples, hdi_prob = 0.95) {
+  median_val <- median(samples, na.rm = T)
+  hdi_vals <- hdi(samples, hdi_prob)
+  
+  return(
+    paste0(signif(median_val,3),"[", signif(hdi_vals[1],3), " ", signif(hdi_vals[2],3),"]"))
+}
+
+```
+
+```{r d_Q}
+d_rate_m<-inner_join(d_rate_m,select(d_rater, -rate_value))
+
+d_rate_m%>%group_by(beta,scheme,agonist,i_state_from,i_state_to)%>%summarise(rate_label = format_median_hdi_auto(rate_value),median_rate=median(rate_value,na.rm = T))%>%ungroup()->d_Q
+
+d_Q<-d_Q%>%mutate(ag=if_else(d_Q$agonist=="agonist","$\\,\\mu M^{-1}$",""))%>%unite(label_rate,c("rate_label","ag"), sep = " ")
+```
+
+
+```{r d_Q 2}
+states<-model$domain_states%>%filter(id_domain==1)%>%
+  select(id_state,Binding,Rocking,id_sub_state)
+d_Q%>%left_join(states,by=join_by(i_state_from==id_state))%>%
+  left_join(states,by=join_by(i_state_to==id_state), suffix = c(".i",".j"))->d_Q
+
+d_Q
+```
+
+
+Here I want to build the kon vs koff plot
+
+For that I have to identify the directionality of each rate. 
+
+This information is already present in model$transitions
+```{r dQ 3}
+dQ<-data.frame()
+for (i in seq_len(length(model$transitions))){
+  for (j in seq_len(length(model$transitions[[i]]))){
+    dQr=model$transitions[[i]][[j]][-7]
+    dQr$interactions=    paste0(model$transitions[[i]][[j]]$conformational_interactions$id_interaction,collapse="_") 
+    
+    dQ<-bind_rows(dQ,dQr)    
+  }
+}
+
+
+```
+dQ contains all the info we need.
+
+we need a dataframe with the following fields:
+1. iter
+2. not iter_time not i_beta (we only use beta=1),
+3. i_walker
+4. id_walker
+5. run->not needed
+6. scheme ->not needed (until needed)
+7. rep->same
+8. data ->same
+9  i_state_from
+10 i_state_to
+11 rate_value-> to kon/koff
+
+from dQ
+1. i_start i_end agonist dependency conformation_transition_direction id_conformational_change 
+
+```{r}
+#build the kon dataframe
+dQ%>%filter(conformational_transition_direction==1)%>%select(i_start,i_end,id_conformational_change, conformational_transition_mulitplicity,interactions)%>%rename(i_state_from=i_start, i_state_to=i_end)->d_kon
+dQ%>%filter(conformational_transition_direction==-1)%>%select(i_start,i_end,id_conformational_change, conformational_transition_mulitplicity,interactions)%>%rename(i_state_from=i_start, i_state_to=i_end, transition_multiplicity_off=conformational_transition_mulitplicity)->d_koff
+
+
+```
+
+
+build d_rate_kon
+```{r d_rate_kon}
+d_rate_kon<-d_rate_m%>%drop_na()%>%filter(beta==1)%>%
+  select(scheme,iter,iter_cat,i_walker,id_walker,i_state_from,i_state_to,rate_value)%>%
+  rename(kon=rate_value)%>%inner_join(d_kon)
+
+```
+
+
+
+
+```{r d_rate_koff}
+d_rate_koff<-d_rate_m%>%drop_na()%>%filter(beta==1)%>%
+  select(scheme,iter,iter_cat,i_walker,id_walker,i_state_from,i_state_to,rate_value)%>%
+  rename(koff=rate_value)%>%inner_join(d_koff)
+col_koff<-colnames(d_rate_koff)
+col_koff[c(6,7)]<-col_koff[c(7,6)]
+
+colnames(d_rate_koff)<-col_koff
+```
+
+```{r d_rate_onoff}
+d_rate_onoff<-inner_join(d_rate_kon, d_rate_koff,by = join_by(scheme, iter, iter_cat,i_walker, id_walker, i_state_from, i_state_to,interactions))
+```
+
+
+```{r dQon}
+dQ_on<-d_kon%>%filter(conformational_transition_mulitplicity==1)%>%left_join(d_Q%>%rename(kon=median_rate))
+```
+
+
+```{r}
+d_koff_rev<-d_koff
+d_koff_rev$i_state_from<-d_koff$i_state_to
+d_koff_rev$i_state_to<-d_koff$i_state_from
+
+```
+
+
+```{r}
+dQ_off_rev<-d_koff_rev%>%filter(transition_multiplicity_off==1)%>%left_join(d_Q%>%rename(koff=median_rate))
+
+
+
+```
+```{r}
+dQ_onoff<-inner_join(dQ_on, dQ_off_rev,by = join_by( i_state_from, i_state_to,interactions))
+
+```
+
+```{r dQ_meadian}
+d_rate_onoff%>%group_by(scheme,i_state_from,i_state_to,conformational_transition_mulitplicity,id_conformational_change.x,transition_multiplicity_off,interactions)%>%summarise(kon=median(kon), koff=median(koff))->dQ_median
+```
+
+```{r color_scheme}
+color_scheme <- c(
+  "No interaction" = "#999999",  # Gray (unchanged, neutral)
+  "RBb" = "#332288",             # Dark blue
+  "RBr" = "#CC6677",             # Pink/red
+  "BRb" = "#88CCEE",             # Light blue
+  "BRr" = "#DDCC77",             # Gold/yellow
+  "RB * BRb" = "#5A7FA6",        # Blended color: midpoint between BRb and RBb
+  "RB * BRr" = "#C79A6F",         # Blended color: midpoint between BRr and RBr
+  "white" = "#FFFFFF"
+  )
+
+
+
+# Ensure the labels are in the same order as the colors in `color_scheme`
+color_labels <- c(
+  "No interaction",              # Corresponds to "#999999"
+  "RB on binding",               # Corresponds to "#332288"
+  "RB on rotation",              # Corresponds to "#CC6677"
+  "BR on binding",               # Corresponds to "#88CCEE"
+  "BR on rotation",              # Corresponds to "#DDCC77"
+  "RB BR on binding",            # Corresponds to "#5A7FA6"
+  "RB BR on rotation",            # Corresponds to "#C79A6F"
+  " " 
+  )
+
+```
+
+
+
+```{r add_third_axis_log10 , fig.width=60/24.5, fig.height=60/24.5}
+
+add_third_axis_log10 <- function(data, xvar, yvar, n_lines = NULL, title = "log[10](Affinity~(mu * M))",
+                                 labels_size=5, title_size=6,
+                           tick_length=0.15,axis_distance=0,
+                           title_distance=1, reverse_axis=FALSE,
+                           linewidth=0.5) {
+  # Compute z = log10(x) - log10(y)
+  data <- data %>%
+    mutate(
+      z = log10(.data[[xvar]]) - log10(.data[[yvar]]),
+     w= log10(.data[[xvar]]) + log10(.data[[yvar]])
+
+      )
+
+  # Determine range of z values
+  z_range <- range(data$z, na.rm = TRUE)
+  if (is.null(n_lines))
+    n_lines=-floor(z_range[1])+ceiling(z_range[2])+1
+
+  z_seq <- seq(floor(z_range[1]), ceiling(z_range[2]), length.out = n_lines)
+
+  # Define x range
+  x_range <- range(data[[xvar]], na.rm = TRUE)
+
+  # Define y range
+  y_range <- range(data[[yvar]], na.rm = TRUE)
+
+
+  w_range<-range(data$w,na.rm = TRUE)
+  w_range <- c(floor(w_range[1]), floor(w_range[2])+1+axis_distance)
+
+
+  tick_length=(log10(x_range[2])-log10(x_range[1]))/5*tick_length
+
+
+  # Generate diagonal lines
+  grid_data <- expand.grid(w = w_range, z = z_seq) %>%
+    mutate(x = 10^(0.5*(z+w)),y=10^(0.5*(w-z)))%>%
+    mutate(x = dplyr::if_else(x<x_range[1],x_range[1],x))%>%
+    mutate(y = x/10^z)%>%
+    mutate( y= dplyr::if_else(y<y_range[1],y_range[1],y))%>%
+    mutate(x = y * 10^z)
+
+  axis_line_data<- expand.grid(w = w_range[2], z = z_seq) %>%
+    mutate(x = 10^(0.5*(z+w)),y=10^(0.5*(w-z)))
+
+
+
+
+  axis_ticks_data<- expand.grid(w = c(0,tick_length)+w_range[2], z = z_seq) %>%
+    mutate(x = 10^(0.5*(z+w)),y=10^(0.5*(w-z)))
+
+  axis_ticks_label_data<- expand.grid(w = 4.5*tick_length+w_range[2], z = z_seq) %>%
+    mutate(x = 10^(0.5*(z+w)),y=10^(0.5*(w-z)))
+  if (reverse_axis)
+    axis_ticks_label_data$label=-(axis_ticks_label_data$z)
+  else
+    axis_ticks_label_data$label=(axis_ticks_label_data$z)
+
+  axis_ticks_label_data <- axis_ticks_label_data %>%
+  mutate(label_transformed = ifelse(label >= 0,
+                                    paste0(" ", scales::label_number()(label)),
+                                    scales::label_number()(label)))
+
+  axis_label_pos<-data.frame(w= rep(w_range[2]+title_distance,3),
+                             z=c(z_seq[1],0.5*(z_seq[1]+z_seq[n_lines]),z_seq[n_lines]))%>%
+    mutate(x = 10^(0.5*(z+w)),y=10^(0.5*(w-z)), label=list("",title,""))
+  #print(axis_label_pos)
+  # Add annotation to the plot
+  list(
+    geom_line(data = axis_line_data, aes(x = log10(x), y = log10(y)),linewidth=linewidth),
+    geom_line(data = axis_ticks_data, aes(x = log10(x), y = log10(y), group = z),linewidth=linewidth/2),
+    geom_line(data = grid_data, aes(x = log10(x), y = log10(y), group = z),
+              linetype = "dotted"),
+   geom_text(data = axis_ticks_label_data,
+          mapping = aes(x = log10(x), y = log10(y), label = label_transformed),
+          size.unit = "pt", size = labels_size, angle = 45, hjust = 1, vjust = 0.5, parse = TRUE),
+    coord_fixed(),
+    geom_text(data=axis_label_pos, mapping = aes(x=log10(x),y=log10(y), label = label),size.unit = "pt",size=title_size,parse = T,
+              angle=-45, hjust=0.5,vjust=0.5)
+
+    )
+}
+```
+
+
+```{r add kinetic factors , fig.width=60/24.5, fig.height=60/24.5}
+library(withr)
+gg_add_kinetic_factors<-function(dxx, dyx,curvature_x,dxy, dyy,curvature_y,kon_,kon_1, koff_,koff_1,RB, r, color){
+  
+  xx=dxx
+  yx=dyx
+  offset=0.03
+  oxy=(sign(dxy)*offset)
+  oyx=(sign(dyx)*offset)
+  
+  
+  xy=dxy
+  yy=dyy
+  return (list(
+    annotate("segment",x =kon_, xend= kon_1, y=koff_, yend= koff_,linewidth=0.1, 
+           arrow= arrow(angle=90,length = unit(2, "pt"),
+      ends = "both"), color=color),
+  annotate("label",x =(kon_+kon_1)*0.5 + xx, y=koff_+ yx,label=paste0(RB,"[", r,"[on]]"), parse=T, size=6*25.4 / 72.27, hjust=0.5-0.5*sign(dxx), vjust=0.5, label.size=0, fill="white"),
+  
+    annotate(
+    geom = "curve", x = (kon_+kon_1)*0.5+xx, y = koff_+yx, xend = (kon_+kon_1)*0.5, yend = oyx+ koff_,linewidth=0.1, 
+    curvature =curvature_x,arrow = arrow(length = unit(2, "pt")), color=color
+  ), 
+  
+  annotate("segment",x =kon_1, xend= kon_1, y = koff_1, yend= koff_, linewidth=0.25, 
+           arrow= arrow(angle=90,length = unit(2, "pt"),
+      ends = "both"), color=color) ,
+  annotate("label",x =kon_1+xy, y=(koff_+koff_1)*0.5+yy,label=paste(RB,"[",r,"[off]]"), parse=T, size=6*25.4 / 72.27, hjust=0.5-0.5*sign(dxy), vjust=0.5,nudge_x=0.5-0.5*sign(dxy)*0.1, fill="white", label.size=0),
+    annotate(
+    geom = "curve", x =kon_1+xy, y=(koff_+koff_1)*0.5+yy,xend = oxy+kon_1, yend=(koff_+koff_1)*0.5,linewidth=0.25, 
+    curvature = curvature_y, arrow = arrow(length = unit(2, "pt")), color=color
+  ) 
+  
+  ))
+}
+
+
+
+
+```
+
+
+```{r figure 3 B, fig.width=60/24.5, fig.height=60/24.5}
+
+
+fig_3_B_data<-function(d_rate_onoff, seed,nsamples, min_iter_cat=7){
+
+with_seed(seed=seed,{d42<-d_rate_onoff%>%filter(conformational_transition_mulitplicity==1,transition_multiplicity_off==1,id_conformational_change.x==1, iter_cat>=min_iter_cat)%>%slice_sample(n=nsamples)})
+  return (d42)
+}
+
+fig_3_B<-function(d42){
+rotation_state_images <- c("./r_analysis/drawings/FUU.png",
+                  "./r_analysis/drawings/FRU.png",
+                  "./r_analysis/drawings/FUR.png",
+                  "./r_analysis/drawings/FRR.png")
+
+i_state=1:4
+interactions=c("No interaction","RBb","BRb","RB * BRb")
+dx <- c(-1,1.5,-1.5,0)
+dy <- c(1.2,-1.5,1.5,-3)
+d_rotation_state_images<-data.frame(i_state,interactions,dx=dx,dy=dy,images=rotation_state_images)
+
+d42m<-d42%>%group_by(interactions)%>%summarise(kon=log10(median(kon)),koff=log10(median(koff)) )%>%ungroup()
+ddm<-d42m%>%
+  mutate(interactions = recode(interactions, 
+                               "2" = "BRb", 
+                               "1" = "RBb", 
+                               "1_2" = "RB * BRb", 
+                               .default = "No interaction"),
+         interactions = factor(interactions, levels = c("No interaction", "RBb", "BRb", "RB * BRb")))
+d_rotation_state_images<-d_rotation_state_images%>%left_join(ddm)
+
+
+kon_= d42m$kon[d42m$interactions==""]
+koff_= d42m$koff[d42m$interactions==""]
+kon_1= d42m$kon[d42m$interactions=="1"]
+koff_1= d42m$koff[d42m$interactions=="1"]
+kon_2= d42m$kon[d42m$interactions=="2"]
+koff_2= d42m$koff[d42m$interactions=="2"]
+kon_1_2= d42m$kon[d42m$interactions=="1_2"]
+koff_1_2= d42m$koff[d42m$interactions=="1_2"]
+
+
+
+
+color_labels<-c("No rotation",
+               "Left subunit rotates", 
+                "Right subunit rotates", 
+               "Both subunits rotate")
+
+fig__3B<-d42%>%
+  mutate(interactions = recode(interactions, 
+                               "2" = "BRb", 
+                               "1" = "RBb", 
+                               "1_2" = "RB * BRb", 
+                               .default = "No interaction"),
+         interactions = factor(interactions, levels = c("No interaction", "RBb", "BRb", "RB * BRb")))%>%
+ggplot()+
+  geom_point(aes(x=log10(kon),y=log10(koff), color=interactions ),size=0.2, alpha=0.1)+
+  #scale_x_log10(labels = scales::label_log())+
+  #scale_y_log10(labels = scales::label_log())+
+  xlab(expression(log[10](binding~(b[on]~s^-1~ mu*M^-1))))+
+  ylab(expression(log[10](unbinding~(b[off]~s^-1))))+
+  scale_color_manual(values=color_scheme, labels=color_labels)+
+## hasta aca
+  
+  add_third_axis_log10(data=d42,xvar = "kon",yvar = "koff",reverse_axis = T,title = "log[10](Affinity ~(mu*M))",axis_distance = 1,title_distance = 1.5)+
+  
+  gg_add_kinetic_factors(dxx=-0.3,dyx=-0.5,curvature_x=0.3,dxy=0.3,dyy=0,curvature_y=0.3,
+                         kon_ = kon_,kon_1 = kon_1,koff_ = koff_, koff_1=koff_1, 
+                         RB = "RB",r="b", color=color_scheme["RBb"])+
+  
+  gg_add_kinetic_factors(dxx=-0.6,dyx=0.2,curvature_x=-0.3,dxy=-0.3,dyy=0,curvature_y=-0.3,
+                         kon_ = kon_,kon_1 = kon_2,koff_ = koff_, koff_1=koff_2, 
+                         RB = "BR",r="b",color=color_scheme["BRb"])+
+  
+  gg_add_kinetic_factors(dxx=0.5,dyx=-0.5,curvature_x=-0.3,dxy=0.2,dyy=0,curvature_y=0.3,
+                         kon_1 = kon_1,kon_ = kon_1_2,koff_1 = koff_1, koff_=koff_1_2, 
+                         RB = "BR",r="b",color=color_scheme["BRb"])+
+  
+  gg_add_kinetic_factors(dxx=-1,dyx=-0.4,curvature_x=0.3,dxy=-0.5,dyy=-0.5,curvature_y
+                         =-0.3,
+                         kon_1 = kon_2,kon_ = kon_1_2,koff_1 = koff_2, koff_=koff_1_2, 
+                         RB = "RB",r="b",color=color_scheme["RBb"])+
+
+    geom_image(data = d_rotation_state_images, mapping = aes(x=kon+dx,y=koff+dy,image =images), size = 0.3)+
+  geom_curve(data=d_rotation_state_images,mapping=aes(x = kon+dx*0.8,y=koff+dy*0.8,xend = kon+dx*0.2, yend=koff+dy*0.2, color=interactions),curvature = 0.3, arrow = arrow(length = unit(4,"pt")))+
+  guides(color = guide_legend(override.aes = list(
+    linetype = 0   # removes line (or set to NA)
+   # shape = 16,     # displays a solid circle; change as needed
+  #  size = 3        # adjust the size if necessary
+  ))) +
+  theme(panel.spacing.x = unit(1, "mm"))+
+  guides(col = guide_legend(ncol = 1))+
+  ggtitle("b")+
+  theme_classic() +  # Base size for font
+   theme(
+      #  axis.line = element_line(color = "black"),
+      #  axis.ticks = element_line(color = "black"),
+        axis.text = element_text(size = 5),
+        #axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_text(size = 6),
+        legend.position = "none"
+           # No legend for this example
+       # plot.margin = margin(t = 0,  # Top margin
+      #                       r = 0,  # Right margin  
+       #                      b = 0,  # Bottom margin
+      #                       l = 0,  # Left margin
+       #                      unit = "cm")
+        )+
+  theme(
+     # legend.position = "inside",
+      legend.position = "none",
+     # legend.background = element_blank(),  # Optional: Add a transparent background
+      legend.text = element_text(size = 6),
+      text = element_text(size = 5),  # Adjust size of all text in the plot
+         
+      #  axis.line = element_line(color = "black"),
+      #  axis.ticks = element_line(color = "black"),
+        axis.text = element_text(size = 5),
+        #axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_text(size = 6),
+           # No legend for this example
+       # plot.margin = margin(t = 0,  # Top margin
+      #                       r = 0,  # Right margin  
+       #                      b = 0,  # Bottom margin
+      #                       l = 0,  # Left margin
+       #                      unit = "cm")
+        )
+
+return (fig__3B)
+}
+```
+
+
+
+```{r figure 3C}
+
+
+fig_3_C_data<-function(d_rate_onoff, seed,nsamples, min_iter_cat=7){
+
+with_seed(seed=seed,{d43<-d_rate_onoff%>%filter(conformational_transition_mulitplicity==1,transition_multiplicity_off==1,id_conformational_change.x==2, iter_cat>=min_iter_cat)%>%slice_sample(n=nsamples)})
+  return (d43)
+}
+
+
+fig_3_C<-function(d43){
+binding_state_images <- c("drawings/FUF.png",
+                  "drawings/FUB.png",
+                  "drawings/BUF.png",
+                  "drawings/BUB.png")
+
+i_state=1:4
+interactions=c("No interaction","RBr","BRr","RB * BRr")
+dx <- c(0.9, -1,1.8,0.9)
+dy <- c(0.9,0.7,0.6,-1)
+d_binding_state_images<-data.frame(i_state,interactions,dx=dx,dy=dy,images=binding_state_images)
+
+
+
+
+d43_m<-d43%>%group_by(interactions)%>%summarise(kon=log10(median(kon)),koff=log10(median(koff)) )%>%ungroup()
+d43_mm<-d43_m%>%
+  mutate(interactions = recode(interactions, 
+                               "2" = "BRr", 
+                               "1" = "RBr", 
+                               "1_2" = "RB * BRr", 
+                               .default = "No interaction"),
+         interactions = factor(interactions, levels = c("No interaction", "RBr", "BRr", "RB * BRr")))
+d_binding_state_images<-d_binding_state_images%>%left_join(d43_mm)
+
+
+kon_= d43_m$kon[d43_m$interactions==""]
+koff_= d43_m$koff[d43_m$interactions==""]
+kon_1= d43_m$kon[d43_m$interactions=="1"]
+koff_1= d43_m$koff[d43_m$interactions=="1"]
+kon_2= d43_m$kon[d43_m$interactions=="2"]
+koff_2= d43_m$koff[d43_m$interactions=="2"]
+kon_1_2= d43_m$kon[d43_m$interactions=="1_2"]
+koff_1_2= d43_m$koff[d43_m$interactions=="1_2"]
+
+
+color_labels<-c("Both sites free",
+               "Right site bound", 
+                "Right site bound", 
+               "Both sites bound")
+
+
+
+
+d43<-d43
+fig__3C<- d43%>%
+   mutate(interactions = recode(interactions, 
+                               "2" = "BRr", 
+                               "1" = "RBr", 
+                               "1_2" = "RB * BRr", 
+                               .default = "No interaction"),
+         interactions = factor(interactions, levels = c("No interaction", "RBr", "BRr", "RB * BRr")))%>%
+  ggplot()+
+add_third_axis_log10(d43,xvar = "kon", yvar = "koff",title = "log[10](Efficacy)",title_distance = 1.2,axis_distance = 0.8)+
+  
+  geom_point(aes(x=log10(kon),y=log10(koff), color=interactions ),size=0.2, alpha= 0.1)+
+#  scale_x_log10(labels = scales::label_log())+
+#  scale_y_log10(labels = scales::label_log())+
+  scale_color_manual(values=color_scheme, labels=color_labels)+
+
+    geom_image(data = d_binding_state_images, mapping = aes(x=kon+dx,y=koff+dy,image =images), size = 0.3)+
+  
+  gg_add_kinetic_factors(dxx=-0.3,dyx=0.5,curvature_x=-0.3,
+                         dxy=0.2,dyy=0.5,curvature_y=-0.3,
+                         kon_1 = kon_,
+                         kon_ = kon_1,
+                         koff_1 = koff_, 
+                         koff_= koff_1, 
+                         RB = "RB",r="r", color=color_scheme["RBr"])+
+  
+  gg_add_kinetic_factors(dxx=-0.2,dyx=-0.6,curvature_x=-0.3,
+                         dxy=-0.1,dyy=-0.3,curvature_y=-0.3,
+                         kon_1 = kon_,
+                         kon_ = kon_2,
+                         koff_1 = koff_, 
+                         koff_=koff_2, 
+                         RB = "BR",r="r",color=color_scheme["BRr"])+
+  
+  gg_add_kinetic_factors(dxx= 0.3,dyx=0.3,curvature_x=0.3,
+                         dxy=0.3,dyy=-0.1,curvature_y=0.3,
+                         kon_ = kon_1,
+                         kon_1 = kon_1_2,
+                         koff_ = koff_1, 
+                         koff_1=koff_1_2, RB = "BR",r="r",color=color_scheme["BRr"])+
+  
+  gg_add_kinetic_factors(dxx=0.2,dyx=-0.4,curvature_x=-0.3,
+                         dxy=-0.5,dyy=0,curvature_y=-0.3,
+                         kon_ = kon_2,
+                         kon_1 = kon_1_2,
+                         koff_ = koff_2, 
+                         koff_1=koff_1_2, RB = "RB",r="r",color=color_scheme["RBr"])+
+
+  geom_curve(data=d_binding_state_images,mapping=aes(x = kon+dx*0.8,y= koff+dy*0.8,xend = kon+dx*0.2, yend= koff+dy*0.2, color=interactions),curvature = 0.3, arrow = arrow(length = unit(4,"pt")))+
+  
+  
+  
+  
+   xlab(expression(log[10](rotating~(r[on]~s^-1))))+
+  ylab(expression(log[10](unrotating~(r[off]~s^-1))))+
+  ggtitle("c")+
+  theme(panel.spacing.x = unit(1, "mm"))+ 
+  guides(col = guide_legend(ncol = 1))+
+  theme_classic(base_size = 6) +  # Base size for font
+  theme(
+      #  axis.line = element_line(color = "black"),
+      #  axis.ticks = element_line(color = "black"),
+        axis.text = element_text(size = 5),
+        #axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_text(size = 6),
+        legend.position = "none"
+           # No legend for this example
+       # plot.margin = margin(t = 0,  # Top margin
+      #                       r = 0,  # Right margin  
+       #                      b = 0,  # Bottom margin
+      #                       l = 0,  # Left margin
+       #                      unit = "cm")
+        )
+
+return (fig__3C)  
+}
+```
+
+
+
+
+
+
+
+
+```{r figure 3A, fig.width=90/24.5, fig.height=90/24.5}
+library(ggplot2)
+#install.packages("ggsvg")
+library(ggsvg)
+
+fig_3_A<-function(){
+state_images <- c("./r_analysis/drawings/FUU.png",
+                  "./r_analysis/drawings/FRU.png",
+                  "./r_analysis/drawings/FUR.png",
+                  "./r_analysis/drawings/FRR.png",
+                  "./r_analysis/drawings/BUU.png",
+                  "./r_analysis/drawings/BRU.png",
+                  "./r_analysis/drawings/BUR.png",
+                  "./r_analysis/drawings/BRR.png"
+                  )
+color_scheme <- c(
+  "white"="#FFFFFF",
+  "No interaction" = "#999999",  # Gray (unchanged, neutral)
+  "RBb" = "#332288",             # Dark blue
+  "BRb" = "#88CCEE",             # Light blue
+  "RB * BRb" = "#5A7FA6",        # Blended color: midpoint between BRb and RBb
+  "RBr" = "#CC6677",             # Pink/red
+  "BRr" = "#DDCC77"#,             # Gold/yellow
+# "RB * BRr" = "#C79A6F"         # Blended color: midpoint between BRr and RBr
+)
+
+color_labels <- c(
+  "", 
+  "No interaction",              # Corresponds to "#999999"
+  "BR on binding",               # Corresponds to "#332288"
+  "BR on rotation",              # Corresponds to "#CC6677"
+  "RB on binding",               # Corresponds to "#88CCEE"
+  "RB on rotation",              # Corresponds to "#DDCC77"
+  "RB BR on binding"#,            # Corresponds to "#5A7FA6"
+ # "RB BR on rotation"           # Corresponds to "#C79A6F"
+  )
+i_state=1:8
+x <- c(0,1,0,1,0.66,1.66,0.66,1.66)
+y <- c(0,0,-1,-1,-0.66,-0.66,-1.66,-1.66)
+d_states_images<-data.frame(i_state,x,y,state_images)
+#                        5       9      13      17      21 
+i_state_from = c(1,2,1,3,3,4,2,4,1,5,5,6,5,7,2,6,3,7,6,8,7,8,4,8)
+i_state_to =   c(2,1,3,1,4,3,4,2,5,1,6,5,7,5,6,2,7,3,8,6,8,7,8,4)
+
+pos_in_arrow=  rep(0.5,24)
+pos_in_arrow[5]=0.25
+pos_in_arrow[6]=1-0.25
+
+pos_in_arrow[7]=0.25
+pos_in_arrow[8]=1-0.25
+
+pos_in_arrow[11]=0.6
+pos_in_arrow[12]=1-0.6
+
+pos_in_arrow[13]=0.6
+pos_in_arrow[14]=1-0.6
+
+
+labels=c("$r_{on}$",  #1 2
+         "$r_{off}$", # 2 1
+         "$r_{on}$", # 1,3,
+         "$r_{off}$",
+         "$r_{on}$", # 3,4,
+         "$r_{off}$",
+         "$r_{on}$", # 2,4,
+         "$r_{off}$",
+         
+         "${b_{on}\\cdot L}$",# 1,5,
+         "$b_{off}$",
+         #5,6,
+         "$r_{on}\\cdot RB_{ron}$",
+         "$r_{off}\\cdot RB_{roff}$",
+         
+         #5,7,
+         "$r_{on}\\cdot BR_{ron}$", 
+         "$r_{off}\\cdot BR_{roff}$",
+         
+          #2,6,
+         "$RB_{bon}\\cdot L$",
+         "$b_{off}\\cdot RB_{boff}$",
+         
+         #3,7,
+         "$BR_{bon} \\cdot L$", 
+         "$b_{off}\\cdot BR_{boff}$",
+         
+          #6,8,
+         "$r_{on}\\cdot BR_{ron}$",
+         "$r_{off}\\cdot BR_{roff}$",
+         
+         #7,8,
+         "$r_{on}\\cdot RB_{ron}$",
+         "$r_{off}\\cdot RB_{roff}$",
+         
+         #4,8
+         "$RB_{bon}\\cdot BR_{bon} \\cdot L$", 
+         "$b_{off}\\cdot RB_{boff}\\cdot BR_{boff}$"
+                                           
+         )
+interactions=c(
+        "No interaction",
+        "No interaction", 
+        "No interaction", 
+        "No interaction", 
+        "No interaction", 
+        "No interaction", 
+        "No interaction", 
+        "No interaction", 
+        
+        "No interaction", 
+        "No interaction", 
+         #5,6,
+         "RBr",
+         "RBr",
+         
+         #5,7,
+         "BRr", 
+         "BRr", 
+         
+          #2,6,
+         "RBb",
+         "RBb",
+         
+         #3,7,
+         "BRb",
+         "BRb",
+         
+          #6,8,
+         "BRr",
+         "BRr",
+         
+         #7,8,
+         "RBr",
+         "RBr",
+         
+         #4,8
+         "RB * BRb",
+         "RB * BRb"
+                                           
+         )
+d_arrows=data.frame(i_state_from,i_state_to, labels, pos_in_arrow, interactions)
+
+                                        
+
+d_arrows<-left_join(d_arrows,d_states_images%>%select(-state_images),by=join_by(i_state_from==i_state))%>%left_join(d_states_images%>%select(-state_images),by=join_by(i_state_to==i_state),suffix = c("i","j"))
+interaction_set<-c("No interaction" ,  # Gray (unchanged, neutral)
+  "RBb",             # Dark blue
+  "BRb" ,             # Light blue
+  "RB * BRb",        # Blended color: midpoint between BRb and RBb
+  "RBr",             # Pink/red
+  "BRr" ,             # Gold/yellow
+  "RB * BRr" , " ")
+
+#d_arrows<-d_arrows%>%mutate(interactions = factor(interactions,labels = c( "No interaction", "BRb", "RBb", "RB * RBb","BRr","RBr","RB * RBr")))
+
+state_radius=0.1
+label_color="black"
+gap=2
+shift=0.15
+head_size=0.5
+sizes=2
+ggplot(d_states_images, aes(x = x, y = y)) +
+  geom_image(aes(image = state_images,), size = 0.3) +
+ ggplot2::coord_fixed()+  
+  geom_half_arrow(x = d_arrows$xi, 
+                  y = d_arrows$yi ,
+                  xend = d_arrows$xj, 
+                  yend = d_arrows$yj, 
+                  color=d_arrows$interactions, alpha=1, linetype = 1, linewidth = 0.3, gap=gap*state_radius,head_size = head_size*state_radius, shift=state_radius * shift, head_angle = pi / 2 / 3, handle_occlusion = T)+
+ # geom_rect(data = d_arrows,
+#          aes(xmin = xi, xmax = xj, ymin = yi, ymax = yj),
+#          inherit.aes = FALSE,
+#          color = "white", fill = "white")+
+
+  geom_text_arrow(
+        x = d_arrows$xi, 
+                  y = d_arrows$yi ,
+                  xend = d_arrows$xj, 
+                  yend = d_arrows$yj, 
+                  labels = d_arrows$labels,
+        pos=d_arrows$pos_in_arrow,
+        size = sizes,
+        head_size = state_radius * head_size,
+        gap = state_radius * gap,
+        shift = state_radius * shift*4,
+        color = label_color,
+        alpha = 1
+      )+ggtitle("a")+
+scale_color_manual(
+    values = color_scheme ,
+    labels = color_labels,
+    guide = guide_legend(override.aes = list(color = color_scheme, labels=color_labels))  
+  ) +
+  scale_x_continuous(limits = c(-0.10,1.80))+scale_y_continuous(limits = c(-1.80,0.10))+
+  theme(
+    legend.position = "none",
+    title = element_text(size = 6),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    plot.background = element_blank(),
+    panel.background = element_blank(),
+    plot.margin = margin(0, 0, 0, 0), # Remove all margins
+    panel.spacing = unit(0, "lines")  # Remove any extra panel spacing
+  )->fig__3A
+
+return (fig__3A)
+}
+fig_3_A()
+```
+
+
+
+```{r free energy }
+#' simulates the energy landscape in the transition between two states
+#' 
+#' it is an approximation that goes from 0 to 0.5 and 0.5 to 1 in the reaction coordinate, 
+#' with the first derivative being 0 at 0, 0.5 and 1
+#' 
+#'
+#' @param x 
+#' @param G_0 
+#' @param G_1 
+#' @param G_t 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+double_well_equation<-function(x,G_0, G_1, G_t, x0=0,x1=1){
+  # 48 is necessary to make G_t the maximum
+  G01=-48*(G_t-G_0)
+  G21=-48*(G_t-G_1)
+  
+  x=(x-x0)/(x1-x0)
+  
+ # browser()
+  return(     (x<0.5)%*% t(G_0)+(1.0/3*(x<0.5)*x^3 - 1.0/4*(x<0.5)*x^2)%*%t(G01)+
+              (x>=0.5)%*% t(G_1)+(1.0/3*(x>=0.5)*(1-x)^3-1.0/4*(x>=0.5)*(1-x)^2)%*%t(G21)
+                )
+}
+
+plot_well_equation<-function(G_0, G_1, G_t){
+  x=seq(-0.1,1.1,length.out=50)
+  ggplot()+geom_line(aes(x=x,y=double_well_equation(x,G_0,G_1,G_t)))
+}
+```
+
+
+```{r free energy }
+rates_to_gibbs<-function(x,k01,k10,fastest_rate, reverse=F,T=298){
+  R=0.001987 #kcal mol
+    lnE0=0
+     lnE0=0
+  lnE1=lnE0-log(k01/k10) * R*T
+  lnG01=log(fastest_rate/k01) * R*T
+  if (reverse){
+  return (double_well_equation(x,G_0 = lnE0-lnE1,G_1 = lnE1-lnE1,G_t = lnG01-lnE1))
+ 
+     }  else{
+  return (double_well_equation(x,G_0 = lnE0,G_1 = lnE1,G_t = lnG01))
+    
+  }
+}
+```
+
+
+
+
+```{r free energy }
+plot_free_energy<-function(data=d42, interac=c("No interaction", "RBb"),fastest_rate, reverse=FALSE, 
+                           y_title=expression(Delta*G~(kcal %.% mol^-1)),
+     x_title="Reaction coordinate"){
+  dw<-data.frame()
+ # browser()
+  for (inter in interac){
+dww<-data %>%filter(interactions %in% inter)%>%group_by(interactions)%>%
+    slice_min(i_state_from)%>%
+    slice_min(i_state_to)%>%
+    ungroup() %>%
+    select(iter,iter_cat,i_walker,kon,koff, interactions)%>%
+    rowwise() %>%                   # Perform operations row by row
+    mutate(x= list(xx),y = list(rates_to_gibbs(xx, kon, koff, fastest_rate, reverse))) %>%  # Compute Gibbs free energy
+    ungroup() %>%                   # Remove row-wise grouping
+    unnest_longer(c(x, y))      # Expand x and y into long format
+  dw<-bind_rows(dw,dww)
+  }
+
+  ggplot(dw)+geom_line(aes(x=x,y=y, group=interaction(interactions,iter,i_walker), color=interactions), alpha=0.1)+scale_color_manual(values=color_scheme)+
+     ylab(y_title) + xlab(x_title)+ 
+  theme_classic(base_size = 6) +  # Base size for font
+  theme(
+      #  axis.line = element_line(color = "black"),
+      #  axis.ticks = element_line(color = "black"),
+        axis.text = element_text(size = 5),
+        #axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_text(size = 5),
+        legend.position = "none"
+           # No legend for this example
+       # plot.margin = margin(t = 0,  # Top margin
+      #                       r = 0,  # Right margin  
+       #                      b = 0,  # Bottom margin
+      #                       l = 0,  # Left margin
+       #                      unit = "cm")
+        )
+
+  
+}
+  
+```
+
+
+
+```{r figure 3D, fig.width=60/24.5, fig.height=60/24.5}
+
+
+fig_3_D_data<-function(d_par_wide, seed,nsamples, min_iter_cat=7){
+
+with_seed(seed=seed,{d41<-d_par_wide%>%filter( iter_cat>=min_iter_cat)%>%slice_sample(n=nsamples)})
+return (d41)
+}
+
+fig_3_D<-function (d41){
+
+d_41 <- d41 %>%
+pivot_longer(
+cols = c(LB_ron, UB_ron, LB_bon, UB_bon, LB_roff, UB_roff, LB_boff, UB_boff),
+names_to = c("bound", "conformational_change", "sense"),
+names_pattern = "(LB|UB)_(r|b)(on|off)"
+)%>%
+pivot_wider(names_from = sense,values_from = value)
+
+min_value=sqrt(min(d_41$on)*min(d_41$off))
+max_value=sqrt(max(d_41$on)*max(d_41$off))
+
+
+
+color_scheme <- c(
+  "white"="#FFFFFF",
+  "No interaction" = "#999999",  # Gray (unchanged, neutral)
+  "RBb" = "#332288",             # Dark blue
+  "BRb" = "#88CCEE",             # Light blue
+  "RB * BRb" = "#5A7FA6",        # Blended color: midpoint between BRb and RBb
+  "RBr" = "#CC6677",             # Pink/red
+  "BRr" = "#DDCC77",             # Gold/yellow
+  "RB * BRr" = "#C79A6F"         # Blended color: midpoint between BRr and RBr
+)
+
+
+color_labels<-c(" ",
+                "No interaction",
+                "RB on binding", 
+                "BR on binding",
+                "RB BR on binding",
+                "RB on rotation", 
+                "BR on rotation",
+                "RB BR on rotation"
+                )
+
+do_annotate_limits=FALSE
+
+fig___3D<-d41%>%ggplot()+
+  geom_point(aes(x = log10(LB_ron),y=log10(LB_roff), color="BRr"), size=0.2, alpha=0.1)+
+  geom_point(aes(x = log10(UB_ron),y=log10(UB_roff), color="RBr"), size=0.2, alpha=0.1)+
+  geom_point(aes(x = log10(LB_bon),y=log10(LB_boff), color="BRb"), size=0.2, alpha=0.1)+
+  geom_point(aes(x = log10(UB_bon),y=log10(UB_boff), color="RBb"), size=0.2, alpha=0.1)+
+   scale_color_manual(values=color_scheme, labels=color_labels)+
+add_third_axis_log10(d_41,xvar ="on", yvar = "off",title = "log[10](equilibrium~factor)" , n_lines =5, title_distance = 2)+
+  annotate("segment",x=log10(min(d_41$on)),y=0,xend=log10(max(d_41$on)),yend=0,  linewidth = 0.2)+ # y=0
+  annotate("segment",x=0,y=log10(min(d_41$off)),xend=0,yend=log10(max(d_41$off)),  linewidth = 0.2)+ # y=0
+  annotate("segment",x=log10(min_value),y=log10(min_value),xend=log10(max_value),yend=log10(max_value),  linewidth = 0.2)+ # x=y
+  annotate("segment",x=log10(min_value),y=-log10(min_value),xend=log10(max_value),yend= -log10(max_value),  linewidth = 0.2)+ # x=-y
+  ifelse (do_annotate_limits,list(
+  annotate("label", x= log10(50), y= log10(1.5), label= "f[off]>1", parse=T, hjust=0, vjust=0, size=6,size.unit = "pt",fill = "white",      # white background
+           label.size = 0,      # no border
+           label.padding = unit(0.5, "lines")),
+  annotate("label", x= log10(50), y= log10(1/1.5), label= "f[off]<1", parse=T, hjust=0, vjust=1, size=6,size.unit = "pt",fill = "white",      # white background
+           label.size = 0,      # no border
+           label.padding = unit(0.5, "lines")),
+  annotate("label", x= log10(1/1.5), y= log10(1/1000), label= "f[on]<1", parse=T, vjust=0, angle=90, hjust=0.5, size=6,size.unit = "pt",fill = "white",      # white background
+           label.size = 0,      # no border
+           label.padding = unit(0.2, "lines")),
+  annotate("label", x= log10(1.5), y= log10(1/1000), label= "f[on]>1", parse=T, vjust=1, angle=90, hjust=0.5, size=6,size.unit = "pt",fill = "white",      # white background
+           label.size = 0,      # no border
+           label.padding = unit(0.2, "lines")),
+  annotate("label", x= log10(50), y= log10(50/1.5), label= "f[on]>f[off]", parse=T, hjust=0, vjust=1, size=6,size.unit = "pt", angle=45,fill = "white",      # white background
+           label.size = 0,      # no border
+           label.padding = unit(0.2, "lines")),
+  annotate("label", x= log10(50/1.5), y= log10(50), label= "f[on]<f[off]", parse=T, hjust=0, vjust=0, size=6,size.unit = "pt", angle=45,fill = "white",      # white background
+           label.size = 0,      # no border
+           label.padding = unit(0.2, "lines")),
+  
+  annotate("label", x= log10(50), y= log10(1.5/50), label= "f[on]>f[off]^-1", parse=T, hjust=0, vjust=0, size=6,size.unit = "pt", angle=-45,fill = "white",      # white background
+           label.size = 0,      # no border
+           label.padding = unit(0.2, "lines")),
+  annotate("label", x= log10(50/1.5), y= log10(1/50), label= "f[on]<f[off]^-1", parse=T, hjust=0, vjust=1, size=6,size.unit = "pt", angle=-45,fill = "white",      # white background
+           label.size = 0,      # no border
+           label.padding = unit(0.2, "lines"))), list())+
+  
+  theme(panel.spacing.x = unit(1, "mm"))+ 
+ # scale_x_log10(labels =  scales::label_log())+
+#  scale_y_log10(labels = scales::label_log())+
+  ylab(expression(log[10]("allosteric factor off"))) + xlab(expression(log[10]("allosteric factor on")))+ggtitle("d")+
+  theme_classic(base_size = 6) +  # Base size for font
+#  scale_color_discrete(labels = function(x) parse(text = x))+
+  theme(
+    legend.position = "none",
+    legend.position.inside = c(0.1, 0.8),  # Set the legend inside the plot
+   # legend.background = element_blank(),  # Optional: Add a transparent background
+      legend.title=element_blank(),
+   axis.text = element_text(size = 5),
+        #axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_text(size = 6),
+           # No legend for this example
+       # plot.margin = margin(t = 0,  # Top margin
+      #                       r = 0,  # Right margin  
+       #                      b = 0,  # Bottom margin
+      #                       l = 0,  # Left margin
+       #                      unit = "cm")
+        )
+  
+return (fig___3D)
+}
+```
+
+
+```{r}
+
+fig_3_D_insets<-function(d41, d42,d43){
+
+  d_42<-d42%>%
+  mutate(interactions = recode(interactions, 
+                               "2" = "BRb", 
+                               "1" = "RBb", 
+                               "1_2" = "RB * BRb", 
+                               .default = "No interaction"),
+         interactions = factor(interactions, levels = c("No interaction", "RBb", "BRb", "RB * BRb")))
+
+d_43<-d43%>%
+  mutate(interactions = recode(interactions, 
+                               "2" = "BRr", 
+                               "1" = "RBr", 
+                               "1_2" = "RB * BRr", 
+                               .default = "No interaction"),
+         interactions = factor(interactions, levels = c("No interaction", "RBr", "BRr", "RB * BRr")))
+
+dx=0.3
+dy=0.3
+sc<-list(scale_y_continuous(limits=c(-2,12)),scale_x_continuous(breaks = c(0, 1)))
+
+fig__3D<-fig_3_D(d41 = d41)+
+
+  inset_element(plot_free_energy(d_43,interac = c("No interaction", "BRr"),fastest_rate = 1e6,reverse = T,y_title = expression(Delta~G), x_title = "")+sc+
+                theme(
+                  axis.title.x = element_blank()),
+                left = 0.6-dx, bottom = 0.95-dy, right = 0.6, top = 0.95)+
+
+  inset_element(plot_free_energy(d_43,c("No interaction", "RBr"),fastest_rate = 1e6,reverse = T,y_title = expression(Delta~G), x_title = "")+sc+
+                theme(
+                  axis.title.x = element_blank()), 
+               left = 1-dx, bottom = 0.25, right = 1, top = 0.25+dy)+
+
+  inset_element(plot_free_energy(d_42,c("No interaction", "BRb"),fastest_rate = 1e6, y_title = expression(Delta~G), x_title = "")+sc+
+                theme(
+                  axis.title.x = element_blank()), 
+                left = 0.01, bottom = 0.4, right = 0.01+dx, top = 0.4+dy)+
+
+  inset_element(plot_free_energy(d_42,c("No interaction", "RBb"),fastest_rate = 1e6)+sc+
+                theme(
+                  axis.title.x = element_blank()), 
+                left = 0.80-dx, bottom = 0.02, right = 0.80, top = 0.02+dy)
+
+return (fig__3D)
+}
+```
+
+
+
+```{r fig 3, fig.width=180/24.5, fig.height=180/24.5}
+fig_3_complete<-function(d_rate_onoff,d_par_wide, seed, nsamples){
+  
+  d41<-fig_3_D_data(d_par_wide, seed, nsamples)
+  d42<-fig_3_B_data(d_rate_onoff, seed, nsamples)
+  d43<-fig_3_C_data(d_rate_onoff, seed, nsamples)
+  
+layout="
+AB
+CD
+"
+
+return(
+  fig_3_A()+fig_3_B(d42 = d42 )+fig_3_C(d43 = d43)+fig_3_D_insets(d41 = d41,d42 = d42,d43 = d43)+ plot_layout(design = layout, axes = "collect")
+  )
+}
+```
+
+
+```{r fig 3, fig.width=180/24.5, fig.height=180/24.5}
+xx=seq(0,1,0.01) # for delta G plots
+fig_3_complete(d_rate_onoff%>%filter(scheme==schemes[1]),d_par_wide %>%filter(scheme==schemes[1]), seed=42, nsamples = 10000)
+ggsave("./r_analysis/results/Figure_3.pdf",device =cairo_pdf, dpi = 300, width = 180, height = 170 ,units = "mm")
+```
+
+
+```{r}
+sessionInfo()
+```
